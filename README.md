@@ -9,7 +9,7 @@ It's not hitting 30 yet, but I'm optimistic.
 
 Scrappy code but the gist of it is:
 * Load a simple map, where 1 = Wall block
-* Create sprites for wall tiles and player in mini-map - the pseudo-3D all hangs off this
+* Create sprites for wall tiles and player in mini-map - **_the pseudo-3D all hangs off this_**
 * Cast 6 rays from player from -45 degrees to +45 degrees from player direction, and use line intersection to identify viewable wall tiles
 * Compare these wall sprite locations to player location to decide which 1 or 2 walls need to be drawn for each sprite
 * Project the 2 or 3 vertices that describe these walls into the 3D view and make lines between them
