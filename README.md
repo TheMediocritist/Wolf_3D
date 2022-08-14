@@ -1,7 +1,9 @@
 # Wolf_3D
-Demonstration of pseudo-3D first person engine for Playdate using Lua
+Demonstration of pseudo-3D first person engine for Playdate using Lua.
 
-![Wolf_working](https://user-images.githubusercontent.com/79881777/184537441-2d21aeb9-7c30-43e4-9dd2-9ea0cea330da.gif)
+The goal here was to build an engine to demonstrate that something _like_ Wolfenstein 3D could reach 30fps. The idea was to replace ray-tracing with vertex-projection (I don't know how to describe this; I call it middle-out... ;-P)
+
+![Wolf_working_2](https://user-images.githubusercontent.com/79881777/184538742-9b8b7a6c-8394-4648-9e85-815616f580a9.gif)
 
 Scrappy code but the gist of it is:
 * Load a simple map, where 1 = Wall block
