@@ -301,34 +301,34 @@ function updateView()
     table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end )
     
     -- determine if near polygons are blocking view of far polygons and if so, remove
-    -- local blocked_area = {}
-    -- blocked_area[#blocked_area + 1] = {}
-    -- blocked_area[1].left = screen_polys[1].left_angle
-    -- blocked_area[1].right = screen_polys[1].right_angle
-    -- 
-    -- for i = 2, num_screen_polys do
-    --   local done = false
-    --   for j = 1, #blocked_area do
-    --     -- print ("blocked area: " .. j .. "= " .. blocked_area[j].left .. ", " .. blocked_area[j].right)
-    --     if screen_polys[i].left_angle >= blocked_area[j].left and screen_polys[i].right_angle <= blocked_area[j].right then
-    --       screen_polys[i].delete = true
-    --       done = true
-    --       -- Would be quicker to escape here so subsequent blocked areas aren't examined
-    --     elseif screen_polys[i].left_angle <= blocked_area[j].left and screen_polys[i].right_angle >= blocked_area[j].left then
-    --       blocked_area[j].left = screen_polys[i].left_angle
-    --       done = true
-    --     elseif screen_polys[i].right_angle >= blocked_area[j].right and screen_polys[i].left_angle <= blocked_area[j].right then
-    --       blocked_area[j].right = screen_polys[i].right_angle
-    --       done = true
-    --     end
-    --   end
-    --   
-    --   if done == false then
-    --     blocked_area[#blocked_area + 1] = {}
-    --     blocked_area[#blocked_area].left = screen_polys[i].left_angle
-    --     blocked_area[#blocked_area].right = screen_polys[i].right_angle
-    --   end
-    -- end
+    local blocked_area = {}
+    blocked_area[#blocked_area + 1] = {}
+    blocked_area[1].left = screen_polys[1].left_angle
+    blocked_area[1].right = screen_polys[1].right_angle
+    
+    for i = 2, num_screen_polys do
+      local done = false
+      for j = 1, #blocked_area do
+        -- print ("blocked area: " .. j .. "= " .. blocked_area[j].left .. ", " .. blocked_area[j].right)
+        if screen_polys[i].left_angle >= blocked_area[j].left and screen_polys[i].right_angle <= blocked_area[j].right then
+          screen_polys[i].delete = true
+          done = true
+          -- Would be quicker to escape here so subsequent blocked areas aren't examined
+        elseif screen_polys[i].left_angle <= blocked_area[j].left and screen_polys[i].right_angle >= blocked_area[j].left then
+          blocked_area[j].left = screen_polys[i].left_angle
+          done = true
+        elseif screen_polys[i].right_angle >= blocked_area[j].right and screen_polys[i].left_angle <= blocked_area[j].right then
+          blocked_area[j].right = screen_polys[i].right_angle
+          done = true
+        end
+      end
+      
+      if done == false then
+        blocked_area[#blocked_area + 1] = {}
+        blocked_area[#blocked_area].left = screen_polys[i].left_angle
+        blocked_area[#blocked_area].right = screen_polys[i].right_angle
+      end
+    end
           
     for i = num_screen_polys, 1, -1 do
       -- print("screen_poly: " .. i)
