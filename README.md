@@ -16,12 +16,17 @@ Scrappy code but the gist of it is:
 * Draw wall polygons from furthest to nearest
 
 To do:
-* Clean up the code
-* Implement map scrolling to allow bigger levels (infinite?)
-* Replace fixed values with variables for, e.g. FOV, view distance, tile size
-* Replace the 'ray casting' to identify viewable walls with simple stored tile-offset test (8 directions would be plenty)
-* Think of a better way to deal with occlusion culling because it's barely better than just drawing everything
-* Implement doors (think 1 smaller wall tile + 1 sprite wall + 1 smaller wall tile)
-* Add demo enemies
-* Running & jumping
-* Shooting
+- [X] Wall sorting
+- [X] Occlusion culling
+- [X] Distance shading
+- [X] Implement collisions
+- [ ] Clean up the code
+- [ ] Implement map scrolling to allow bigger levels (infinite?)
+- [ ] Replace fixed values with variables for, e.g. FOV, view distance, tile size
+- [ ] Replace the 'ray casting' to identify viewable walls with simple stored tile-offset test (8 directions would be plenty)
+- [ ] Think of a better way to deal with occlusion culling because it's barely better than just drawing everything
+- [ ] Implement doors (think 1 smaller wall tile + 1 sprite wall + 1 smaller wall tile)
+- [ ] Add demo enemies
+- [ ] Running & jumping
+- [ ] Shooting
+- [ ] Get better hobbies
