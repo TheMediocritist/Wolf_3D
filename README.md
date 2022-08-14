@@ -24,7 +24,7 @@ To do:
 - [X] Occlusion culling
 - [X] Distance shading
 - [X] Implement collisions
-- [ ] Fix graphical glitch when vertex is _exactly_ at 45 degrees from player
+- [ ] Fix graphical glitch when vertex is _exactly_ at 45 degrees from player (see GIF for example)
 - [ ] Clean up the code
 - [ ] Implement map scrolling to allow bigger levels (infinite?)
 - [ ] Replace fixed values with variables for, e.g. FOV, view distance, tile size
