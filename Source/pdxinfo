@@ -1,0 +1,7 @@
+name=Wolf3D
+author=TheMediocritist
+description=Demo 3D technique.
+bundleID=com.TheMediocritist.Wolf3D
+version=1.0
+buildNumber=100
+imagePath=SystemAssets
