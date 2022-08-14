@@ -110,7 +110,7 @@ function updateView()
   for i = 1, num_draw_these do
     local wall_sprite = draw_these[i]
     local points = {}
-        
+            
     -- Fetch vertices for projecting/drawing
     if wall_sprite.x - 8 > player_sprite.x then
         if wall_sprite.y - 8 > player_sprite.y then -- wall is below and right of player, so draw left and top sides
@@ -167,7 +167,7 @@ function updateView()
     end
         
     local last_p = #p
-        
+            
     for i = 1, last_p do
       p[i] = {}
       p[i].vertex = points[i]
@@ -199,24 +199,25 @@ function updateView()
     end
         
     if p[1].camera_angle < -44 then 
-        local view_line = geom.lineSegment.new(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y)
-        -- TO DO: Compare performance of geom.line_segment.fast_intersection
-        local intersects, new_point = player_sprite.view_left:intersectsLineSegment(view_line)  
+        local x3, y3, x4, y4 = player_sprite.view_left:unpack()
+        local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+        
         if intersects then
             -- gfx.drawCircleAtPoint(new_point,3)
-            p[1].vertex = geom.point.new(new_point.x, new_point.y)
+            p[1].vertex = geom.point.new(new_point_x, new_point_y)
             p[1].delta = p[1].vertex - player
             p[1].player_distance = p[1].vertex:distanceToPoint(player)
             p[1].camera_angle = -45
             p[1].camera_distance = p[1].player_distance * cos(rad(p[1].camera_angle))
         end
+        
     elseif p[1].camera_angle > 44 then
-        local view_line = geom.lineSegment.new(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y)
-        -- TO DO: Compare performance of geom.line_segment.fast_intersection
-        local intersects, new_point = player_sprite.view_right:intersectsLineSegment(view_line)  
+        local x3, y3, x4, y4 = player_sprite.view_right:unpack()
+        local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+
         if intersects then
             -- gfx.drawCircleAtPoint(new_point,3)
-            p[1].vertex = geom.point.new(new_point.x, new_point.y)
+            p[1].vertex = geom.point.new(new_point_x, new_point_y)
             p[1].delta = p[1].vertex - player
             p[1].player_distance = p[1].vertex:distanceToPoint(player)
             p[1].camera_angle = 45
@@ -225,22 +226,21 @@ function updateView()
     end
         
         if p[2].camera_angle < -44 then 
-            local view_line = geom.lineSegment.new(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y)
-            -- TO DO: Compare performance of geom.line_segment.fast_intersection
-            local intersects, new_point = player_sprite.view_left:intersectsLineSegment(view_line)  
+            local x3, y3, x4, y4 = player_sprite.view_left:unpack()
+            local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+            
             if intersects then
-                p[2].vertex = geom.point.new(new_point.x, new_point.y)
+                p[2].vertex = geom.point.new(new_point_x, new_point_y)
                 p[2].delta = p[2].vertex - player
                 p[2].player_distance = p[2].vertex:distanceToPoint(player)
                 p[2].camera_angle = -45
                 p[2].camera_distance = p[2].player_distance * cos(rad(p[2].camera_angle))
             end
         elseif p[2].camera_angle > 44 then
-            local view_line = geom.lineSegment.new(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y)
-            -- TO DO: Compare performance of geom.line_segment.fast_intersection
-            local intersects, new_point = player_sprite.view_right:intersectsLineSegment(view_line)  
+           local x3, y3, x4, y4 = player_sprite.view_right:unpack()
+           local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)  
             if intersects then
-                p[2].vertex = geom.point.new(new_point.x, new_point.y)
+                p[2].vertex = geom.point.new(new_point_x, new_point_y)
                 p[2].delta = p[2].vertex - player
                 p[2].player_distance = p[2].vertex:distanceToPoint(player)
                 p[2].camera_angle = 45
@@ -251,12 +251,12 @@ function updateView()
         local last_point = #p
         if last_point == 3 then
           if p[last_point].camera_angle > 44 then
-              local view_line = geom.lineSegment.new(p[last_point-1].vertex.x, p[last_point-1].vertex.y, p[last_point].vertex.x, p[last_point].vertex.y)
-              -- TO DO: Compare performance of geom.line_segment.fast_intersection
-              local intersects, new_point = player_sprite.view_right:intersectsLineSegment(view_line)  
+              local x3, y3, x4, y4 = player_sprite.view_right:unpack()
+              local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+              
               if intersects then
                   -- gfx.drawCircleAtPoint(new_point,3)
-                  p[last_point].vertex = geom.point.new(new_point.x, new_point.y)
+                  p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
                   p[last_point].delta = p[last_point].vertex - player
                   p[last_point].player_distance = p[last_point].vertex:distanceToPoint(player)
                   p[last_point].camera_angle = 45
@@ -298,7 +298,7 @@ function updateView()
   if num_screen_polys > 0 then
     
     -- sort screen polys from nearest to furthest
-    table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end )
+    table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
     
     -- determine if near polygons are blocking view of far polygons and if so, remove
     local blocked_area = {}
