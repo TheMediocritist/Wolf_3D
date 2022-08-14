@@ -3,6 +3,8 @@ Demonstration of pseudo-3D first person engine for Playdate using Lua.
 
 The goal here was to build an engine to demonstrate that something _like_ Wolfenstein 3D could reach 30fps. The idea was to replace ray-tracing with vertex-projection (I don't know how to describe this; I call it middle-out... ;-P)
 
+It's not hitting 30 yet, but I'm optimistic.
+
 ![Wolf_working_2](https://user-images.githubusercontent.com/79881777/184538742-9b8b7a6c-8394-4648-9e85-815616f580a9.gif)
 
 Scrappy code but the gist of it is:
