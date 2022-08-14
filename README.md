@@ -5,6 +5,8 @@ The goal here was to build an engine to demonstrate that something _like_ Wolfen
 
 It's not hitting a steady 30fps yet, but I'm optimistic.
 
+**_Improvements/suggestions are very welcome!_** (I'm just learning how to do this).
+
 ![Wolf_working_2](https://user-images.githubusercontent.com/79881777/184538742-9b8b7a6c-8394-4648-9e85-815616f580a9.gif)
 
 Scrappy code but the gist of it is:
