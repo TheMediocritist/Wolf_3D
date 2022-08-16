@@ -173,10 +173,14 @@ function playdate.update()
     
     gfx.sprite.redrawBackground()
     
-    playdate.resetElapsedTime()
+    if perfmon then
+      playdate.resetElapsedTime()
+    end
     gfx.sprite.update()
-    perf_monitor.sprites_update.finish = playdate.getElapsedTime()
-    playdate.resetElapsedTime()
+    if perfmon then
+      perf_monitor.sprites_update.finish = playdate.getElapsedTime()
+      playdate.resetElapsedTime()
+    end
     
     for i = 1, camera.rays, camera.rays - 1 do
       gfx.setLineWidth(3)
@@ -187,8 +191,9 @@ function playdate.update()
       gfx.drawLine(camera.ray_lines[i])
     end
     
-    perf_monitor.sprites_draw.finish = playdate.getElapsedTime()
-    
+    if perfmon then
+      perf_monitor.sprites_draw.finish = playdate.getElapsedTime()
+    end
     playdate.drawFPS(0,0)
 end
 
@@ -219,17 +224,20 @@ function updateView()
   
   local num_draw_these = #draw_these
   
-  perf_monitor.projection_load_vertices.start = playdate.getCurrentTimeMilliseconds()
-  playdate.resetElapsedTime()
+  if perfmon then
+    perf_monitor.projection_load_vertices.start = playdate.getCurrentTimeMilliseconds()
+    playdate.resetElapsedTime()
+  end
   
   for i = 1, num_draw_these do
     --local wall_sprite = draw_these[i]
     local points = getVertices(draw_these[i])
 
-    perf_monitor.projection_load_vertices.finish = playdate.getElapsedTime() * num_draw_these
-
-    perf_monitor.projection_vertex_maths.start = playdate.getCurrentTimeMilliseconds()
-    playdate.resetElapsedTime()
+    if perfmon then
+      perf_monitor.projection_load_vertices.finish = playdate.getElapsedTime() * num_draw_these
+      perf_monitor.projection_vertex_maths.start = playdate.getCurrentTimeMilliseconds()
+      playdate.resetElapsedTime()
+    end
     
     local p = table.create(#points, 0)
     for i = 1, #points do
@@ -268,11 +276,11 @@ function updateView()
         p[i].camera_distance = p[i].player_distance * cos(rad(p[i].camera_angle))
       end
       
-      perf_monitor.projection_vertex_maths.finish = playdate.getElapsedTime() * num_draw_these
-      
-      perf_monitor.projection_vertex_clip.start = playdate.getCurrentTimeMilliseconds()
-      playdate.resetElapsedTime()
-      
+      if perfmon then
+        perf_monitor.projection_vertex_maths.finish = playdate.getElapsedTime() * num_draw_these
+        perf_monitor.projection_vertex_clip.start = playdate.getCurrentTimeMilliseconds()
+        playdate.resetElapsedTime()
+      end
       
       local p1_obj <const> = p[1]
       local p2_obj <const> = p[2]
@@ -301,8 +309,8 @@ function updateView()
           end
       end
       
-      local last_point_obj <const> = p[#p]
-      local last_last_point_obj <const> = p[#p-1]
+      local last_point_obj = p[#p]
+      local last_last_point_obj = p[#p-1]
       if last_point_obj.camera_angle < (-(camera.fov_div)) then 
           local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
           local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, x3, y3, x4, y4)
@@ -326,16 +334,20 @@ function updateView()
           end
       end
           
-      perf_monitor.projection_vertex_clip.finish = playdate.getElapsedTime() * num_draw_these
-      playdate.resetElapsedTime()
+      if perfmon then
+        perf_monitor.projection_vertex_clip.finish = playdate.getElapsedTime() * num_draw_these
+        playdate.resetElapsedTime()
+      end
       
       for i = 1, last_p do
         p[i].offset_x = (p[i].camera_angle/(camera.fov_div)) * (camera.width/2)
         p[i].offset_y = (1/p[i].camera_distance) * (camera.height/2)
       end
       
-      perf_monitor.projection_vertex_project.finish = playdate.getElapsedTime() * num_draw_these
-      playdate.resetElapsedTime()
+      if perfmon then
+        perf_monitor.projection_vertex_project.finish = playdate.getElapsedTime() * num_draw_these
+        playdate.resetElapsedTime()
+      end
                     
           local last_point = #p
 
@@ -359,8 +371,10 @@ function updateView()
                                 200 + p[i+1].camera_distance * math.tan(rad(p[i+1].camera_angle)), 128 - p[i+1].camera_distance)
               end
           end
-          perf_monitor.projection_poly_make.finish = playdate.getElapsedTime() * num_draw_these
-          playdate.resetElapsedTime()
+          if perfmon then
+            perf_monitor.projection_poly_make.finish = playdate.getElapsedTime() * num_draw_these
+            playdate.resetElapsedTime()
+          end
       end
     end
 
@@ -375,8 +389,10 @@ function updateView()
     end
   end
   
-  perf_monitor.projection_poly_sort.finish = playdate.getElapsedTime()
-  playdate.resetElapsedTime()
+  if perfmon then
+    perf_monitor.projection_poly_sort.finish = playdate.getElapsedTime()
+    playdate.resetElapsedTime()
+  end
   
   if cull_polys == true then
     if num_screen_polys > 0 then
@@ -416,8 +432,10 @@ function updateView()
       end
     end
   end
-  perf_monitor.projection_poly_cull.finish = playdate.getElapsedTime()
-  playdate.resetElapsedTime()
+  if perfmon then
+    perf_monitor.projection_poly_cull.finish = playdate.getElapsedTime()
+    playdate.resetElapsedTime()
+  end
     
   if draw_shaded == false then
     gfx.setColor(gfx.kColorWhite)
@@ -434,7 +452,9 @@ function updateView()
     gfx.setColor(gfx.kColorBlack)
   end
   
-  perf_monitor.projection_poly_draw.finish = playdate.getElapsedTime()
+  if perfmon then
+    perf_monitor.projection_poly_draw.finish = playdate.getElapsedTime()
+  end
 
   if debug then
     gfx.setColor(gfx.kColorWhite)
@@ -624,12 +644,15 @@ function makePlayer(x_pos, y_pos, direction)
           s.rotate_transform:reset()
         end
         
-        perf_monitor.player_update.finish = playdate.getElapsedTime()
-        
-        perf_monitor.player_find_viewable_walls.start = playdate.getCurrentTimeMilliseconds()
-        playdate.resetElapsedTime()
+        if perfmon then
+          perf_monitor.player_update.finish = playdate.getElapsedTime()
+          perf_monitor.player_find_viewable_walls.start = playdate.getCurrentTimeMilliseconds()
+          playdate.resetElapsedTime()
+        end
         s:raytrace()
-        perf_monitor.player_find_viewable_walls.finish = playdate.getElapsedTime()
+        if perfmon then
+          perf_monitor.player_find_viewable_walls.finish = playdate.getElapsedTime()
+        end
         
     end
     
