@@ -158,7 +158,7 @@ function setUpCamera()
   camera.direction = player_sprite.direction
   camera.rays = camera_rays + 1
   camera.ray_angles = ray_angles
-  camera.ray_lines = {}
+  camera.ray_lines = table.create(camera.rays, 0)
   for i = 1, camera.rays do
     local ray_direction = player_sprite.direction - (camera.fov_div) + camera.ray_angles * (i - 1)
     local ray_end_x = player_sprite.x + 60 * sin(rad(ray_direction))
@@ -183,7 +183,7 @@ function playdate.update()
       playdate.resetElapsedTime()
     end
     
-    for i = 1, camera.rays, camera.rays - 1 do
+    for i = 1, camera.rays, -1 do
       gfx.setLineWidth(3)
       gfx.setColor(gfx.kColorWhite)
       gfx.drawLine(camera.ray_lines[i])
