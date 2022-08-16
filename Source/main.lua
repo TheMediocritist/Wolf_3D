@@ -354,22 +354,24 @@ function updateView()
 
           for i = 1, last_point - 1 do
               screen_polys[#screen_polys+1] = table.create(0, 4)
+              local p_obj = p[i]
               local p_plus = p[i+1]
-              screen_polys[#screen_polys].distance = (p[i].camera_distance + p_plus.camera_distance)/2
-              screen_polys[#screen_polys].left_angle = math.min(p[i].camera_angle, p_plus.camera_angle)
-              screen_polys[#screen_polys].right_angle = math.max(p[i].camera_angle, p_plus.camera_angle)
+              local poly = screen_polys[#screen_polys]
+              poly.distance = (p_obj.camera_distance + p_plus.camera_distance)/2
+              poly.left_angle = math.min(p_obj.camera_angle, p_plus.camera_angle)
+              poly.right_angle = math.max(p_obj.camera_angle, p_plus.camera_angle)
   
-              screen_polys[#screen_polys].polygon = geom.polygon.new(
-                                                      200 + p[i].offset_x, 120 + p[i].offset_y*4,
-                                                      200 + p_plus.offset_x, 120 + p_plus.offset_y*4,
-                                                      200 + p_plus.offset_x, 120 - p_plus.offset_y*4,
-                                                      200 + p[i].offset_x, 120 - p[i].offset_y*4,
-                                                      200 + p[i].offset_x, 120 + p[i].offset_y*4)
+              poly.polygon = geom.polygon.new(
+                                            200 + p_obj.offset_x, 120 + p_obj.offset_y*4,
+                                            200 + p_plus.offset_x, 120 + p_plus.offset_y*4,
+                                            200 + p_plus.offset_x, 120 - p_plus.offset_y*4,
+                                            200 + p_obj.offset_x, 120 - p_obj.offset_y*4,
+                                            200 + p_obj.offset_x, 120 + p_obj.offset_y*4)
               
               if debug then
                 -- draw wall to top-down view
-                gfx.drawLine(   200 + p[i].camera_distance * tan(rad(p[i].camera_angle)), 128 - p[i].camera_distance, 
-                                200 + p[i+1].camera_distance * tan(rad(p[i+1].camera_angle)), 128 - p[i+1].camera_distance)
+                gfx.drawLine(   200 + p_obj.camera_distance * tan(rad(p_obj.camera_angle)), 128 - p_obj.camera_distance, 
+                                200 + p_plus.camera_distance * tan(rad(p_plus.camera_angle)), 128 - p_plus.camera_distance)
               end
           end
           if perfmon then
