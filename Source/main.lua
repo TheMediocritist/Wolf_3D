@@ -245,6 +245,9 @@ function updateView()
       p[i] = { vertex = points[i] }
     end
 
+    local p1_obj <const> = p[1]
+    local p2_obj <const> = p[2]
+
     local last_p = #p
       if last_p > 0 then
         for i = 1, last_p do
@@ -257,7 +260,7 @@ function updateView()
         end
             
         if last_p == 3 then
-          if p[1].camera_angle <= -(camera.fov_div) and p[2].camera_angle <= -(camera.fov_div) then
+          if p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
               table.remove(p, 1)
               last_p -= 1
           end
@@ -273,8 +276,9 @@ function updateView()
       if last_p > 0 then
       
       for i = 1, last_p do
-        p[i].player_distance = p[i].vertex:distanceToPoint(player)
-        p[i].camera_distance = p[i].player_distance * cos(rad(p[i].camera_angle))
+        local p = p[i]
+        p.player_distance = p.vertex:distanceToPoint(player)
+        p.camera_distance = p.player_distance * cos(rad(p.camera_angle))
       end
       
       if perfmon then
@@ -283,8 +287,6 @@ function updateView()
         playdate.resetElapsedTime()
       end
       
-      local p1_obj <const> = p[1]
-      local p2_obj <const> = p[2]
       if p1_obj.camera_angle < -(camera.fov_div) then 
           local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
           local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, x3, y3, x4, y4)
