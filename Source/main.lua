@@ -5,11 +5,12 @@ local geom <const> = playdate.geometry
 local sin <const> = math.sin
 local cos <const> = math.cos
 local atan2 <const> = math.atan2
+local tan <const> = math.tan
 local deg <const> = math.deg 
 local rad <const> = math.rad
 
 -- set up camera
-local camera <const> = {fov = 60, fov_div = 30, view_distance = 50, width = 400, height = 500}
+local camera <const> = {fov = 60, fov_div = 30, view_distance = 50, width = 400, width_div = 400/2, height = 500, height_div = 500/2}
 
 -- performance monitoring (to work out what's using CPU time)
 local perf_monitor <const> = table.create(0, 11)
@@ -340,8 +341,8 @@ function updateView()
       end
       
       for i = 1, last_p do
-        p[i].offset_x = (p[i].camera_angle/(camera.fov_div)) * (camera.width/2)
-        p[i].offset_y = (1/p[i].camera_distance) * (camera.height/2)
+        p[i].offset_x = (p[i].camera_angle/(camera.fov_div)) * (camera.width_div)
+        p[i].offset_y = (1/p[i].camera_distance) * (camera.height_div)
       end
       
       if perfmon then
@@ -367,8 +368,8 @@ function updateView()
               
               if debug then
                 -- draw wall to top-down view
-                gfx.drawLine(   200 + p[i].camera_distance * math.tan(rad(p[i].camera_angle)), 128 - p[i].camera_distance, 
-                                200 + p[i+1].camera_distance * math.tan(rad(p[i+1].camera_angle)), 128 - p[i+1].camera_distance)
+                gfx.drawLine(   200 + p[i].camera_distance * tan(rad(p[i].camera_angle)), 128 - p[i].camera_distance, 
+                                200 + p[i+1].camera_distance * tan(rad(p[i+1].camera_angle)), 128 - p[i+1].camera_distance)
               end
           end
           if perfmon then
