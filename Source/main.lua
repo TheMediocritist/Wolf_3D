@@ -383,11 +383,8 @@ function updateView()
   
   local num_screen_polys = #screen_polys
   
-  if sort_polys == true then
-    if num_screen_polys > 0 then
-      -- sort screen polys from nearest to furthest
-      table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
-    end
+  if sort_polys == true and num_screen_polys > 0 then
+    table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
   end
   
   if perfmon then
@@ -589,7 +586,9 @@ function makePlayer(x_pos, y_pos, direction)
     s.rotate_transform = playdate.geometry.affineTransform.new()
 
     function s:update()
-      playdate.resetElapsedTime()
+      if perfmon then
+        playdate.resetElapsedTime()
+      end
       local movex, movey = 0, 0
         if playdate.buttonIsPressed('right') then 
             if playdate.buttonIsPressed('b') then
@@ -674,22 +673,22 @@ function makePlayer(x_pos, y_pos, direction)
     end
     
     function s:tileSelect(angle)
-      local view_tiles = {}
       draw_these = {}
       
       if angle >= 337.5 or angle < 22.5 then
+        local view_tiles = table.create(22, 0)
         -- heading north
         view_tiles = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [24] = true, [25] = true, [26] = true}
-      end
-      
-      for i = 1, #wall_sprites do
-        if view_tiles[wall_sprites[i].index] then
-          wall_sprites[i].inview = true
-          draw_these[#draw_these + 1] = wall_sprites[i]
+        
+        for i = 1, #wall_sprites do
+          if view_tiles[wall_sprites[i].index] then
+            wall_sprites[i].inview = true
+            draw_these[#draw_these + 1] = wall_sprites[i]
+          end
         end
+        
+        view_tiles = nil
       end
-      
-      view_tiles = nil
     end
     
     s:add()
