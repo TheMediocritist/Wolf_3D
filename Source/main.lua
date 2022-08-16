@@ -593,8 +593,8 @@ function makePlayer(x_pos, y_pos, direction)
         if playdate.buttonIsPressed('right') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe right
-                movex = 1 * sin(rad(s.direction + 90))
-                movey = 1 * cos(rad(s.direction + 90))
+                movex = sin(rad(s.direction + 90))
+                movey = cos(rad(s.direction + 90))
                 s.moved = true
             else
                 -- turn right
@@ -607,8 +607,8 @@ function makePlayer(x_pos, y_pos, direction)
         if playdate.buttonIsPressed('left') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe left
-                movex = 1 * sin(rad(s.direction - 90))
-                movey = 1 * cos(rad(s.direction - 90))
+                movex = sin(rad(s.direction - 90))
+                movey = cos(rad(s.direction - 90))
                 s.moved = true
             else
                 -- turn left
@@ -619,27 +619,23 @@ function makePlayer(x_pos, y_pos, direction)
             end 
         end
         if playdate.buttonIsPressed('up') then
-            movex = 1 * sin(rad(s.direction))
-            movey = 1 * cos(rad(s.direction))
+            movex = sin(rad(s.direction))
+            movey = cos(rad(s.direction))
             s.moved = true
         end
         if playdate.buttonIsPressed('down') then
-            movex = 1 * sin(rad(s.direction+180))
-            movey = 1 * cos(rad(s.direction+180))
+            movex = sin(rad(s.direction+180))
+            movey = cos(rad(s.direction+180))
             s.moved = true
         end
-        
         
         if s.moved then
           local actualX, actualY, collisions = s:moveWithCollisions(s.x + movex, s.y - movey)
           for i = 1, #camera.ray_lines do
             camera.ray_lines[i]:offset(-(camera.ray_lines[i].x - actualX), -(camera.ray_lines[i].y - actualY))
-          end
-
-          for i = 1, #camera.ray_lines do
             camera.ray_lines[i] = s.rotate_transform:transformedLineSegment(camera.ray_lines[i])
-
           end
+          
           s.moved = false
           s.rotate_transform:reset()
         end
