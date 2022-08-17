@@ -8,6 +8,12 @@ local atan2 <const> = math.atan2
 local tan <const> = math.tan
 local deg <const> = math.deg 
 local rad <const> = math.rad
+local asin <const> = math.asin
+local ceil <const> = math.ceil
+local floor <const> = math.floor
+local min <const> = math.min
+local max <const> = math.max
+local pow <const> = math.pow
 
 -- set up camera
 local camera <const> = {fov = 60, fov_div = 30, view_distance = 50, width = 400, width_div = 400/2, height = 500, height_div = 500/2}
@@ -29,7 +35,7 @@ menu:addCheckmarkMenuItem("perfmon", false, function(value)
   perfmon = value
 end)
 
-playdate.setMinimumGCTime(8) -- This is necessary to remove frequent stutters
+playdate.setMinimumGCTime(3) -- This is necessary to remove frequent stutters
 gfx.setColor(gfx.kColorBlack)
 playdate.display.setRefreshRate(40)
 
@@ -95,7 +101,7 @@ end
 function tileAt(x, y)
   -- returns: tileid, column, row
   -- or false if outside working map bounds
-  local column, row = math.ceil(x/16), math.ceil(y/16)
+  local column, row = ceil(x/16), ceil(y/16)
   if column > 0 and column <= working_map_columns and row > 0 and row <= working_map_rows then
     local tileid = (row - 1) * working_map_columns + column
     return tileid, column, row
@@ -149,9 +155,9 @@ end
 
 function setUpCamera()
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
-  local required_angle = math.deg(math.asin(0.8*sprite_size/camera.view_distance))
+  local required_angle = deg(asin(0.8*sprite_size/camera.view_distance))
   print("required angle: " .. required_angle)
-  local camera_rays = math.floor(camera.fov/required_angle)
+  local camera_rays = floor(camera.fov/required_angle)
   print("camera_rays " .. camera_rays)
   local ray_angles = camera.fov/camera_rays
   print("ray_angles: " .. ray_angles)
@@ -251,12 +257,13 @@ function updateView()
     local last_p = #p
       if last_p > 0 then
         for i = 1, last_p do
-          p[i].delta = player - p[i].vertex
-          local deltax, deltay = p[i].delta:unpack()
-          p[i].player_angle = deg(atan2(deltax, -deltay)) +180
+          local pp = p[i]
+          pp.delta = player - pp.vertex
+          local deltax, deltay = pp.delta:unpack()
+          pp.player_angle = deg(atan2(deltax, -deltay)) + 180
           --if p[i].player_angle < 0 then p[i].player_angle += 360 end
-          p[i].camera_angle = (p[i].player_angle - player_sprite.direction) % 360
-          if p[i].camera_angle > 180 then p[i].camera_angle -= 360 end
+          pp.camera_angle = (pp.player_angle - player_sprite.direction) % 360
+          if pp.camera_angle > 180 then pp.camera_angle -= 360 end
         end
             
         if last_p == 3 then
@@ -288,35 +295,32 @@ function updateView()
       end
       
       if p1_obj.camera_angle < -(camera.fov_div) then 
-          local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
               p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
               p1_obj.delta = p1_obj.vertex - player
               p1_obj.player_distance = p1_obj.vertex:distanceToPoint(player)
               p1_obj.camera_angle = -(camera.fov_div)
-              p1_obj.camera_distance = p1_obj.player_distance -- * cos(rad(p[1].camera_angle))
+              p1_obj.camera_distance = p1_obj.player_distance * cos(rad(p1_obj.camera_angle))
           end
           
       elseif p1_obj.camera_angle > ((camera.fov_div)) then
-          local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
   
           if intersects then
               p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
               p1_obj.delta = p1_obj.vertex - player
               p1_obj.player_distance = p1_obj.vertex:distanceToPoint(player)
               p1_obj.camera_angle = (camera.fov_div)
-              p1_obj.camera_distance = p1_obj.player_distance -- * cos(rad(p[1].camera_angle))
+              p1_obj.camera_distance = p1_obj.player_distance * cos(rad(p1_obj.camera_angle))
           end
       end
       
       local last_point_obj = p[#p]
       local last_last_point_obj = p[#p-1]
       if last_point_obj.camera_angle < (-(camera.fov_div)) then 
-          local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
               last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
@@ -326,8 +330,7 @@ function updateView()
               last_point_obj.camera_distance = last_point_obj.player_distance * cos(rad(last_point_obj.camera_angle))
           end
       elseif last_point_obj.camera_angle > camera.fov_div then
-         local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-         local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, x3, y3, x4, y4)
+         local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
           if intersects then
               last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
               last_point_obj.delta = last_point_obj.vertex - player
@@ -343,8 +346,9 @@ function updateView()
       end
       
       for i = 1, last_p do
-        p[i].offset_x = (p[i].camera_angle/(camera.fov_div)) * (camera.width_div)
-        p[i].offset_y = (1/p[i].camera_distance) * (camera.height_div)
+        local pp = p[i]
+        pp.offset_x = (pp.camera_angle/(camera.fov_div)) * (camera.width_div)
+        pp.offset_y = (1/pp.camera_distance) * (camera.height_div)
       end
       
       if perfmon then
@@ -359,9 +363,9 @@ function updateView()
               local p_obj = p[i]
               local p_plus = p[i+1]
               local poly = screen_polys[#screen_polys]
-              poly.distance = (p_obj.camera_distance + p_plus.camera_distance)/2
-              poly.left_angle = math.min(p_obj.camera_angle, p_plus.camera_angle)
-              poly.right_angle = math.max(p_obj.camera_angle, p_plus.camera_angle)
+              poly.distance = (p_obj.camera_distance + p_plus.camera_distance) * 0.5
+              poly.left_angle = min(p_obj.camera_angle, p_plus.camera_angle)
+              poly.right_angle = max(p_obj.camera_angle, p_plus.camera_angle)
   
               poly.polygon = geom.polygon.new(
                                             200 + p_obj.offset_x, 120 + p_obj.offset_y*4,
@@ -396,8 +400,7 @@ function updateView()
     playdate.resetElapsedTime()
   end
   
-  if cull_polys == true then
-    if num_screen_polys > 0 then
+  if cull_polys == true and num_screen_polys > 0 then
       -- determine if near polygons are blocking view of far polygons and if so, remove
       local blocked_area = table.create(num_screen_polys, 0)
       blocked_area[#blocked_area + 1] = table.create(0, 2)
@@ -432,8 +435,8 @@ function updateView()
           num_screen_polys -= 1
         end
       end
-    end
   end
+  
   if perfmon then
     perf_monitor.projection_poly_cull.finish = playdate.getElapsedTime()
     playdate.resetElapsedTime()
@@ -445,7 +448,6 @@ function updateView()
       gfx.drawPolygon(screen_polys[i].polygon)
     end
   else
-    
     for i = num_screen_polys, 1, -1 do
       gfx.setColor(gfx.kColorWhite)
       gfx.setDitherPattern(0.1+(screen_polys[i].distance/80),gfx.image.kDitherTypeBayer4x4)
