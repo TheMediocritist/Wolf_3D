@@ -149,21 +149,20 @@ end
 
 function setUpCamera()
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
-  local required_angle = math.deg(math.asin(0.8*sprite_size/camera.view_distance))
-  print("required angle: " .. required_angle)
-  local camera_rays = math.floor(camera.fov/required_angle)
-  print("camera_rays " .. camera_rays)
+  local required_angle = math.deg(math.atan(sprite_size/camera.view_distance))
+  local camera_rays = math.floor(camera.fov/required_angle) * 3-- TEMP!!!
   local ray_angles = camera.fov/camera_rays
-  print("ray_angles: " .. ray_angles)
   camera.direction = player_sprite.direction
-  camera.rays = camera_rays + 1
+  camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.ray_angles = ray_angles
   camera.ray_lines = table.create(camera.rays, 0)
-  for i = 1, camera.rays do
-    local ray_direction = player_sprite.direction - (camera.fov_div) + camera.ray_angles * (i - 1)
+  print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 10)/ 10 .. " degrees")
+  --camera.ray_lines = {}
+  for i = 0, camera.rays do
+    local ray_direction = player_sprite.direction - camera.fov_div + camera.ray_angles * i
     local ray_end_x = player_sprite.x + 60 * sin(rad(ray_direction))
     local ray_end_y = player_sprite.y - 60 * cos(rad(ray_direction))
-    camera.ray_lines[#camera.ray_lines + 1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
+    camera.ray_lines[i + 1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
   end
 end
 
@@ -588,7 +587,8 @@ function makePlayer(x_pos, y_pos, direction)
     s:setCenter(0.5, 0.5)
     s.collisionResponse = gfx.sprite.kCollisionTypeSlide
     s.rotate_transform = playdate.geometry.affineTransform.new()
-
+    s.sin_dir = sin(rad(s.direction))
+    s.cos_dir = cos(rad(s.direction))
     function s:update()
       if perfmon then
         playdate.resetElapsedTime()
@@ -597,8 +597,8 @@ function makePlayer(x_pos, y_pos, direction)
         if playdate.buttonIsPressed('right') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe right
-                movex = sin(rad(s.direction + 90))
-                movey = cos(rad(s.direction + 90))
+                movex = s.cos_dir
+                movey = -s.sin_dir
                 s.moved = true
             else
                 -- turn right
@@ -611,8 +611,8 @@ function makePlayer(x_pos, y_pos, direction)
         if playdate.buttonIsPressed('left') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe left
-                movex = sin(rad(s.direction - 90))
-                movey = cos(rad(s.direction - 90))
+                movex = -s.cos_dir
+                movey = s.sin_dir
                 s.moved = true
             else
                 -- turn left
@@ -623,13 +623,13 @@ function makePlayer(x_pos, y_pos, direction)
             end 
         end
         if playdate.buttonIsPressed('up') then
-            movex = sin(rad(s.direction))
-            movey = cos(rad(s.direction))
+            movex = s.sin_dir
+            movey = s.cos_dir
             s.moved = true
         end
         if playdate.buttonIsPressed('down') then
-            movex = sin(rad(s.direction+180))
-            movey = cos(rad(s.direction+180))
+            movex = -s.sin_dir
+            movey = -s.cos_dir
             s.moved = true
         end
         
@@ -639,6 +639,9 @@ function makePlayer(x_pos, y_pos, direction)
             camera.ray_lines[i]:offset(-(camera.ray_lines[i].x - actualX), -(camera.ray_lines[i].y - actualY))
             camera.ray_lines[i] = s.rotate_transform:transformedLineSegment(camera.ray_lines[i])
           end
+          
+          s.sin_dir = sin(rad(s.direction))
+          s.cos_dir = cos(rad(s.direction))
           
           s.moved = false
           s.rotate_transform:reset()
@@ -661,7 +664,7 @@ function makePlayer(x_pos, y_pos, direction)
         -- trace rays
           for i = 1, camera.rays do
               ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
-              for i = 1, #ray_hits do
+              for i = 1, math.min(#ray_hits, 2) do
                   ray_hits[i].inview = true
               end
           end
@@ -672,24 +675,24 @@ function makePlayer(x_pos, y_pos, direction)
           end
     end
     
-    function s:tileSelect(angle)
-      draw_these = {}
-      
-      if angle >= 337.5 or angle < 22.5 then
-        local view_tiles = table.create(22, 0)
-        -- heading north
-        view_tiles = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [24] = true, [25] = true, [26] = true}
-        
-        for i = 1, #wall_sprites do
-          if view_tiles[wall_sprites[i].index] then
-            wall_sprites[i].inview = true
-            draw_these[#draw_these + 1] = wall_sprites[i]
-          end
-        end
-        
-        view_tiles = nil
-      end
-    end
+    -- function s:tileSelect(angle)
+    --   draw_these = {}
+    --   
+    --   if angle >= 337.5 or angle < 22.5 then
+    --     local view_tiles = table.create(22, 0)
+    --     -- heading north
+    --     view_tiles = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [24] = true, [25] = true, [26] = true}
+    --     
+    --     for i = 1, #wall_sprites do
+    --       if view_tiles[wall_sprites[i].index] then
+    --         wall_sprites[i].inview = true
+    --         draw_these[#draw_these + 1] = wall_sprites[i]
+    --       end
+    --     end
+    --     
+    --     view_tiles = nil
+    --   end
+    -- end
     
     s:add()
     s:moveTo(x_pos, y_pos)
