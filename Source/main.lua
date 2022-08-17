@@ -1,18 +1,19 @@
 import 'CoreLibs/sprites'
 import 'CoreLibs/graphics'
-local gfx = playdate.graphics
-local geom = playdate.geometry
-local sin = math.sin
-local cos = math.cos
-local atan2 = math.atan2
-local deg = math.deg 
-local rad = math.rad
+local gfx <const> = playdate.graphics
+local geom <const> = playdate.geometry
+local sin <const> = math.sin
+local cos <const> = math.cos
+local atan2 <const> = math.atan2
+local tan <const> = math.tan
+local deg <const> = math.deg 
+local rad <const> = math.rad
 
 -- set up camera
-camera = {fov = 60, view_distance = 50, width = 400, height = 500}
+local camera <const> = {fov = 60, fov_div = 30, view_distance = 50, width = 400, width_div = 400/2, height = 500, height_div = 500/2}
 
 -- performance monitoring (to work out what's using CPU time)
-perf_monitor = {}
+local perf_monitor <const> = table.create(0, 11)
 
 -- add custom menu items
 local menu = playdate.getSystemMenu()
@@ -24,7 +25,7 @@ menu:addCheckmarkMenuItem("Sort/Cull", true, function(value)
   sort_polys = value
   cull_polys = value
 end)
-menu:addCheckmarkMenuItem("perfmon", true, function(value)
+menu:addCheckmarkMenuItem("perfmon", false, function(value)
   perfmon = value
 end)
 
@@ -157,9 +158,9 @@ function setUpCamera()
   camera.direction = player_sprite.direction
   camera.rays = camera_rays + 1
   camera.ray_angles = ray_angles
-  camera.ray_lines = {}
+  camera.ray_lines = table.create(camera.rays, 0)
   for i = 1, camera.rays do
-    local ray_direction = player_sprite.direction - (camera.fov/2) + camera.ray_angles * (i - 1)
+    local ray_direction = player_sprite.direction - (camera.fov_div) + camera.ray_angles * (i - 1)
     local ray_end_x = player_sprite.x + 60 * sin(rad(ray_direction))
     local ray_end_y = player_sprite.y - 60 * cos(rad(ray_direction))
     camera.ray_lines[#camera.ray_lines + 1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
@@ -173,12 +174,16 @@ function playdate.update()
     
     gfx.sprite.redrawBackground()
     
-    playdate.resetElapsedTime()
+    if perfmon then
+      playdate.resetElapsedTime()
+    end
     gfx.sprite.update()
-    perf_monitor.sprites_update.finish = playdate.getElapsedTime()
-    playdate.resetElapsedTime()
+    if perfmon then
+      perf_monitor.sprites_update.finish = playdate.getElapsedTime()
+      playdate.resetElapsedTime()
+    end
     
-    for i = 1, camera.rays, camera.rays - 1 do
+    for i = 1, camera.rays, -1 do
       gfx.setLineWidth(3)
       gfx.setColor(gfx.kColorWhite)
       gfx.drawLine(camera.ray_lines[i])
@@ -187,8 +192,9 @@ function playdate.update()
       gfx.drawLine(camera.ray_lines[i])
     end
     
-    perf_monitor.sprites_draw.finish = playdate.getElapsedTime()
-    
+    if perfmon then
+      perf_monitor.sprites_draw.finish = playdate.getElapsedTime()
+    end
     playdate.drawFPS(0,0)
 end
 
@@ -214,29 +220,33 @@ function updateView()
     gfx.drawText("draw: " .. perf_monitor.projection_poly_draw.finish*1000 .. "ms", 220, 210)
   end
   
-  local screen_polys = {}
+  local screen_polys = table.create(#draw_these, 0)
   local player = geom.point.new(player_sprite.x, player_sprite.y)
   
   local num_draw_these = #draw_these
   
-  perf_monitor.projection_load_vertices.start = playdate.getCurrentTimeMilliseconds()
-  playdate.resetElapsedTime()
+  if perfmon then
+    perf_monitor.projection_load_vertices.start = playdate.getCurrentTimeMilliseconds()
+    playdate.resetElapsedTime()
+  end
   
   for i = 1, num_draw_these do
     --local wall_sprite = draw_these[i]
     local points = getVertices(draw_these[i])
 
-    perf_monitor.projection_load_vertices.finish = playdate.getElapsedTime() * num_draw_these
-
-    perf_monitor.projection_vertex_maths.start = playdate.getCurrentTimeMilliseconds()
-    playdate.resetElapsedTime()
-    
-    local p = {} 
-    
-    for i = 1, #points do
-      p[i] = {}
-      p[i].vertex = points[i]
+    if perfmon then
+      perf_monitor.projection_load_vertices.finish = playdate.getElapsedTime() * num_draw_these
+      perf_monitor.projection_vertex_maths.start = playdate.getCurrentTimeMilliseconds()
+      playdate.resetElapsedTime()
     end
+    
+    local p = table.create(#points, 0)
+    for i = 1, #points do
+      p[i] = { vertex = points[i] }
+    end
+
+    local p1_obj <const> = p[1]
+    local p2_obj <const> = p[2]
 
     local last_p = #p
       if last_p > 0 then
@@ -250,12 +260,12 @@ function updateView()
         end
             
         if last_p == 3 then
-          if p[1].camera_angle <= -(camera.fov/2) and p[2].camera_angle <= -(camera.fov/2) then
+          if p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
               table.remove(p, 1)
               last_p -= 1
           end
     
-          if p[last_p].camera_angle >= (camera.fov/2) and p[last_p-1].camera_angle >= (camera.fov/2) then
+          if p[last_p].camera_angle >= (camera.fov_div) and p[last_p-1].camera_angle >= (camera.fov_div) then
               table.remove(p, last_p)
               last_p -= 1
           end
@@ -266,99 +276,110 @@ function updateView()
       if last_p > 0 then
       
       for i = 1, last_p do
-        p[i].player_distance = p[i].vertex:distanceToPoint(player)
-        p[i].camera_distance = p[i].player_distance * cos(rad(p[i].camera_angle))
+        local p = p[i]
+        p.player_distance = p.vertex:distanceToPoint(player)
+        p.camera_distance = p.player_distance * cos(rad(p.camera_angle))
       end
       
-      perf_monitor.projection_vertex_maths.finish = playdate.getElapsedTime() * num_draw_these
+      if perfmon then
+        perf_monitor.projection_vertex_maths.finish = playdate.getElapsedTime() * num_draw_these
+        perf_monitor.projection_vertex_clip.start = playdate.getCurrentTimeMilliseconds()
+        playdate.resetElapsedTime()
+      end
       
-      perf_monitor.projection_vertex_clip.start = playdate.getCurrentTimeMilliseconds()
-      playdate.resetElapsedTime()
-      
-      
-      if p[1].camera_angle < -((camera.fov/2)) then 
+      if p1_obj.camera_angle < -(camera.fov_div) then 
           local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, x3, y3, x4, y4)
           
           if intersects then
-              p[1].vertex = geom.point.new(new_point_x, new_point_y)
-              p[1].delta = p[1].vertex - player
-              p[1].player_distance = p[1].vertex:distanceToPoint(player)
-              p[1].camera_angle = -(camera.fov/2)
-              p[1].camera_distance = p[1].player_distance * cos(rad(p[1].camera_angle))
+              p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
+              p1_obj.delta = p1_obj.vertex - player
+              p1_obj.player_distance = p1_obj.vertex:distanceToPoint(player)
+              p1_obj.camera_angle = -(camera.fov_div)
+              p1_obj.camera_distance = p1_obj.player_distance -- * cos(rad(p[1].camera_angle))
           end
           
-      elseif p[1].camera_angle > ((camera.fov/2)) then
+      elseif p1_obj.camera_angle > ((camera.fov_div)) then
           local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, x3, y3, x4, y4)
   
           if intersects then
-              p[1].vertex = geom.point.new(new_point_x, new_point_y)
-              p[1].delta = p[1].vertex - player
-              p[1].player_distance = p[1].vertex:distanceToPoint(player)
-              p[1].camera_angle = (camera.fov/2)
-              p[1].camera_distance = p[1].player_distance * cos(rad(p[1].camera_angle))
+              p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
+              p1_obj.delta = p1_obj.vertex - player
+              p1_obj.player_distance = p1_obj.vertex:distanceToPoint(player)
+              p1_obj.camera_angle = (camera.fov_div)
+              p1_obj.camera_distance = p1_obj.player_distance -- * cos(rad(p[1].camera_angle))
           end
       end
       
-      local last_point = #p
-      
-      if p[last_point].camera_angle < (-(camera.fov/2)) then 
+      local last_point_obj = p[#p]
+      local last_last_point_obj = p[#p-1]
+      if last_point_obj.camera_angle < (-(camera.fov_div)) then 
           local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, x3, y3, x4, y4)
           
           if intersects then
-              p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
-              p[last_point].delta = p[last_point].vertex - player
-              p[last_point].player_distance = p[last_point].vertex:distanceToPoint(player)
-              p[last_point].camera_angle = -(camera.fov/2)
-              p[last_point].camera_distance = p[last_point].player_distance * cos(rad(p[last_point].camera_angle))
+              last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
+              last_point_obj.delta = last_point_obj.vertex - player
+              last_point_obj.player_distance = last_point_obj.vertex:distanceToPoint(player)
+              last_point_obj.camera_angle = -(camera.fov_div)
+              last_point_obj.camera_distance = last_point_obj.player_distance * cos(rad(last_point_obj.camera_angle))
           end
-      elseif p[last_point].camera_angle > ((camera.fov/2)) then
+      elseif last_point_obj.camera_angle > camera.fov_div then
          local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-         local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
+         local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, x3, y3, x4, y4)
           if intersects then
-              p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
-              p[last_point].delta = p[last_point].vertex - player
-              p[last_point].player_distance = p[last_point].vertex:distanceToPoint(player)
-              p[last_point].camera_angle = (camera.fov/2)
-              p[last_point].camera_distance = p[last_point].player_distance * cos(rad(p[last_point].camera_angle))
+              last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
+              last_point_obj.delta = last_point_obj.vertex - player
+              last_point_obj.player_distance = last_point_obj.vertex:distanceToPoint(player)
+              last_point_obj.camera_angle = (camera.fov_div)
+              last_point_obj.camera_distance = last_point_obj.player_distance * cos(rad(last_point_obj.camera_angle))
           end
       end
           
-      perf_monitor.projection_vertex_clip.finish = playdate.getElapsedTime() * num_draw_these
-      playdate.resetElapsedTime()
+      if perfmon then
+        perf_monitor.projection_vertex_clip.finish = playdate.getElapsedTime() * num_draw_these
+        playdate.resetElapsedTime()
+      end
       
       for i = 1, last_p do
-        p[i].offset_x = (p[i].camera_angle/(camera.fov/2)) * (camera.width/2)
-        p[i].offset_y = (1/p[i].camera_distance) * (camera.height/2)
+        p[i].offset_x = (p[i].camera_angle/(camera.fov_div)) * (camera.width_div)
+        p[i].offset_y = (1/p[i].camera_distance) * (camera.height_div)
       end
       
-      perf_monitor.projection_vertex_project.finish = playdate.getElapsedTime() * num_draw_these
-      playdate.resetElapsedTime()
-          
-          
+      if perfmon then
+        perf_monitor.projection_vertex_project.finish = playdate.getElapsedTime() * num_draw_these
+        playdate.resetElapsedTime()
+      end
+                    
+          local last_point = #p
+
           for i = 1, last_point - 1 do
-              screen_polys[#screen_polys+1] = {}
-              screen_polys[#screen_polys].distance = (p[i].camera_distance + p[i+1].camera_distance)/2
-              screen_polys[#screen_polys].left_angle = math.min(p[i].camera_angle, p[i+1].camera_angle)
-              screen_polys[#screen_polys].right_angle = math.max(p[i].camera_angle, p[i+1].camera_angle)
+              screen_polys[#screen_polys+1] = table.create(0, 4)
+              local p_obj = p[i]
+              local p_plus = p[i+1]
+              local poly = screen_polys[#screen_polys]
+              poly.distance = (p_obj.camera_distance + p_plus.camera_distance)/2
+              poly.left_angle = math.min(p_obj.camera_angle, p_plus.camera_angle)
+              poly.right_angle = math.max(p_obj.camera_angle, p_plus.camera_angle)
   
-              screen_polys[#screen_polys].polygon = geom.polygon.new(
-                                                      200 + p[i].offset_x, 120 + p[i].offset_y*4,
-                                                      200 + p[i+1].offset_x, 120 + p[i+1].offset_y*4,
-                                                      200 + p[i+1].offset_x, 120 - p[i+1].offset_y*4,
-                                                      200 + p[i].offset_x, 120 - p[i].offset_y*4,
-                                                      200 + p[i].offset_x, 120 + p[i].offset_y*4)
+              poly.polygon = geom.polygon.new(
+                                            200 + p_obj.offset_x, 120 + p_obj.offset_y*4,
+                                            200 + p_plus.offset_x, 120 + p_plus.offset_y*4,
+                                            200 + p_plus.offset_x, 120 - p_plus.offset_y*4,
+                                            200 + p_obj.offset_x, 120 - p_obj.offset_y*4,
+                                            200 + p_obj.offset_x, 120 + p_obj.offset_y*4)
               
               if debug then
                 -- draw wall to top-down view
-                gfx.drawLine(   200 + p[i].camera_distance * math.tan(rad(p[i].camera_angle)), 128 - p[i].camera_distance, 
-                                200 + p[i+1].camera_distance * math.tan(rad(p[i+1].camera_angle)), 128 - p[i+1].camera_distance)
+                gfx.drawLine(   200 + p_obj.camera_distance * tan(rad(p_obj.camera_angle)), 128 - p_obj.camera_distance, 
+                                200 + p_plus.camera_distance * tan(rad(p_plus.camera_angle)), 128 - p_plus.camera_distance)
               end
           end
-          perf_monitor.projection_poly_make.finish = playdate.getElapsedTime() * num_draw_these
-          playdate.resetElapsedTime()
+          if perfmon then
+            perf_monitor.projection_poly_make.finish = playdate.getElapsedTime() * num_draw_these
+            playdate.resetElapsedTime()
+          end
       end
     end
 
@@ -366,21 +387,20 @@ function updateView()
   
   local num_screen_polys = #screen_polys
   
-  if sort_polys == true then
-    if num_screen_polys > 0 then
-      -- sort screen polys from nearest to furthest
-      table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
-    end
+  if sort_polys == true and num_screen_polys > 0 then
+    table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
   end
   
-  perf_monitor.projection_poly_sort.finish = playdate.getElapsedTime()
-  playdate.resetElapsedTime()
+  if perfmon then
+    perf_monitor.projection_poly_sort.finish = playdate.getElapsedTime()
+    playdate.resetElapsedTime()
+  end
   
   if cull_polys == true then
     if num_screen_polys > 0 then
       -- determine if near polygons are blocking view of far polygons and if so, remove
-      local blocked_area = {}
-      blocked_area[#blocked_area + 1] = {}
+      local blocked_area = table.create(num_screen_polys, 0)
+      blocked_area[#blocked_area + 1] = table.create(0, 2)
       blocked_area[1].left = screen_polys[1].left_angle
       blocked_area[1].right = screen_polys[1].right_angle
       
@@ -400,7 +420,7 @@ function updateView()
         end
         
         if done == false then
-          blocked_area[#blocked_area + 1] = {}
+          blocked_area[#blocked_area + 1] = table.create(0, 2)
           blocked_area[#blocked_area].left = screen_polys[i].left_angle
           blocked_area[#blocked_area].right = screen_polys[i].right_angle
         end
@@ -414,8 +434,10 @@ function updateView()
       end
     end
   end
-  perf_monitor.projection_poly_cull.finish = playdate.getElapsedTime()
-  playdate.resetElapsedTime()
+  if perfmon then
+    perf_monitor.projection_poly_cull.finish = playdate.getElapsedTime()
+    playdate.resetElapsedTime()
+  end
     
   if draw_shaded == false then
     gfx.setColor(gfx.kColorWhite)
@@ -432,7 +454,9 @@ function updateView()
     gfx.setColor(gfx.kColorBlack)
   end
   
-  perf_monitor.projection_poly_draw.finish = playdate.getElapsedTime()
+  if perfmon then
+    perf_monitor.projection_poly_draw.finish = playdate.getElapsedTime()
+  end
 
   if debug then
     gfx.setColor(gfx.kColorWhite)
@@ -478,50 +502,50 @@ function makeWallSprites(map, columns, rows)
                 if x == 7 or (x < 7 and map[(y - 1) * columns + x + 1] == 1) then s.wall_e = true else s.wall_e = false end
                 
                 -- when wall is below and right of player, draw left and top sides
-                if s.wall_n and s.wall_w then s.view_vertices.nw =  {}
+                if s.wall_n and s.wall_w then s.view_vertices.nw =  table.create(2, 0)
                 elseif s.wall_n then s.view_vertices.nw =           {s.vertices.nw, s.vertices.sw}
                 elseif s.wall_w then s.view_vertices.nw =           {s.vertices.ne, s.vertices.nw}
                 else s.view_vertices.nw =                           {s.vertices.ne, s.vertices.nw, s.vertices.sw}
                 end
                 
                 -- when wall is above and right of player, draw left and bottom sides
-                if s.wall_w and s.wall_s then s.view_vertices.sw =  {}
+                if s.wall_w and s.wall_s then s.view_vertices.sw =  table.create(2, 0)
                 elseif s.wall_w then s.view_vertices.sw =           {s.vertices.sw, s.vertices.se}
                 elseif s.wall_s then s.view_vertices.sw =           {s.vertices.nw, s.vertices.sw}
                 else s.view_vertices.sw =                           {s.vertices.nw, s.vertices.sw, s.vertices.se}
                 end
                 
                 -- when wall is below and left of player, draw right and top sides
-                if s.wall_n and s.wall_e then s.view_vertices.ne =  {}
+                if s.wall_n and s.wall_e then s.view_vertices.ne =  table.create(2, 0)
                 elseif s.wall_n then s.view_vertices.ne =           {s.vertices.se, s.vertices.ne}
                 elseif s.wall_e then s.view_vertices.ne =           {s.vertices.ne, s.vertices.nw}
                 else s.view_vertices.ne =                           {s.vertices.se, s.vertices.ne, s.vertices.nw}
                 end
                 
                 -- when wall is above and left of player, draw right and bottom sides
-                if s.wall_e and s.wall_s then s.view_vertices.se = {}
+                if s.wall_e and s.wall_s then s.view_vertices.se = table.create(2, 0)
                 elseif s.wall_e then s.view_vertices.se = {s.vertices.sw, s.vertices.se}
                 elseif s.wall_s then s.view_vertices.se = {s.vertices.se, s.vertices.ne}
                 else s.view_vertices.se = {s.vertices.sw, s.vertices.se, s.vertices.ne}
                 end
                 
                 -- when wall is directly below player, only draw the top side
-                if s.wall_n then s.view_vertices.n = {}
+                if s.wall_n then s.view_vertices.n = table.create(2, 0)
                 else s.view_vertices.n = {s.vertices.ne, s.vertices.nw}
                 end
                 
                 -- when wall is directly above player, only draw the bottom side
-                if s.wall_s then s.view_vertices.s = {}
+                if s.wall_s then s.view_vertices.s = table.create(2, 0)
                 else s.view_vertices.s = {s.vertices.sw, s.vertices.se}
                 end
                 
                 -- when wall is directly to right of player, only draw the left side
-                if s.wall_w then s.view_vertices.w = {}
+                if s.wall_w then s.view_vertices.w = table.create(2, 0)
                 else s.view_vertices.w = {s.vertices.nw, s.vertices.sw}
                 end
                 
                 -- when wall is directly to left of player, only draw the right side
-                if s.wall_e then s.view_vertices.e = {}
+                if s.wall_e then s.view_vertices.e = table.create(2, 0)
                 else s.view_vertices.e = {s.vertices.se, s.vertices.ne}
                 end
                 
@@ -566,13 +590,15 @@ function makePlayer(x_pos, y_pos, direction)
     s.rotate_transform = playdate.geometry.affineTransform.new()
 
     function s:update()
-      playdate.resetElapsedTime()
+      if perfmon then
+        playdate.resetElapsedTime()
+      end
       local movex, movey = 0, 0
         if playdate.buttonIsPressed('right') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe right
-                movex = 1 * sin(rad(s.direction + 90))
-                movey = 1 * cos(rad(s.direction + 90))
+                movex = sin(rad(s.direction + 90))
+                movey = cos(rad(s.direction + 90))
                 s.moved = true
             else
                 -- turn right
@@ -585,8 +611,8 @@ function makePlayer(x_pos, y_pos, direction)
         if playdate.buttonIsPressed('left') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe left
-                movex = 1 * sin(rad(s.direction - 90))
-                movey = 1 * cos(rad(s.direction - 90))
+                movex = sin(rad(s.direction - 90))
+                movey = cos(rad(s.direction - 90))
                 s.moved = true
             else
                 -- turn left
@@ -597,37 +623,36 @@ function makePlayer(x_pos, y_pos, direction)
             end 
         end
         if playdate.buttonIsPressed('up') then
-            movex = 1 * sin(rad(s.direction))
-            movey = 1 * cos(rad(s.direction))
+            movex = sin(rad(s.direction))
+            movey = cos(rad(s.direction))
             s.moved = true
         end
         if playdate.buttonIsPressed('down') then
-            movex = 1 * sin(rad(s.direction+180))
-            movey = 1 * cos(rad(s.direction+180))
+            movex = sin(rad(s.direction+180))
+            movey = cos(rad(s.direction+180))
             s.moved = true
         end
-        
         
         if s.moved then
           local actualX, actualY, collisions = s:moveWithCollisions(s.x + movex, s.y - movey)
           for i = 1, #camera.ray_lines do
             camera.ray_lines[i]:offset(-(camera.ray_lines[i].x - actualX), -(camera.ray_lines[i].y - actualY))
-          end
-
-          for i = 1, #camera.ray_lines do
             camera.ray_lines[i] = s.rotate_transform:transformedLineSegment(camera.ray_lines[i])
-
           end
+          
           s.moved = false
           s.rotate_transform:reset()
         end
         
-        perf_monitor.player_update.finish = playdate.getElapsedTime()
-        
-        perf_monitor.player_find_viewable_walls.start = playdate.getCurrentTimeMilliseconds()
-        playdate.resetElapsedTime()
+        if perfmon then
+          perf_monitor.player_update.finish = playdate.getElapsedTime()
+          perf_monitor.player_find_viewable_walls.start = playdate.getCurrentTimeMilliseconds()
+          playdate.resetElapsedTime()
+        end
         s:raytrace()
-        perf_monitor.player_find_viewable_walls.finish = playdate.getElapsedTime()
+        if perfmon then
+          perf_monitor.player_find_viewable_walls.finish = playdate.getElapsedTime()
+        end
         
     end
     
@@ -648,37 +673,22 @@ function makePlayer(x_pos, y_pos, direction)
     end
     
     function s:tileSelect(angle)
-      local view_tiles = {}
       draw_these = {}
       
       if angle >= 337.5 or angle < 22.5 then
+        local view_tiles = table.create(22, 0)
         -- heading north
         view_tiles = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [24] = true, [25] = true, [26] = true}
-      elseif angle >= 22.5 and angle < 67.5 then
-        -- heading north east
-      elseif angle >= 67.5 and angle < 112.5 then
-        -- heading east
-      elseif angle >= 112.5 and angle < 155.5 then
-        -- heading south east
-      elseif angle >= 155.5 and angle < 202.5 then
-        -- heading south
-      elseif angle >= 202.5 and angle < 247.5 then
-        -- heading south
-      elseif angle >= 247.5 and angle < 292.5 then
-        -- heading south
-      elseif angle >= 292.5 and angle < 338.5 then
-        -- heading south
-      end
-      
-      num_wall_sprites = #wall_sprites
-      for i = 1, num_wall_sprites do
-        if view_tiles[wall_sprites[i].index] then
-          wall_sprites[i].inview = true
-          draw_these[#draw_these + 1] = wall_sprites[i]
+        
+        for i = 1, #wall_sprites do
+          if view_tiles[wall_sprites[i].index] then
+            wall_sprites[i].inview = true
+            draw_these[#draw_these + 1] = wall_sprites[i]
+          end
         end
+        
+        view_tiles = nil
       end
-      
-      local view_tiles = nil
     end
     
     s:add()
