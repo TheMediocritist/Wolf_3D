@@ -22,22 +22,21 @@ Scrappy code but the gist of it is:
 * Draw wall polygons from furthest to nearest
 
 To do:
-- [X] Wall sorting
-- [X] Occlusion culling
+- [X] ~~Wall sorting~~ done but now removed as unnecessary
+- [X] ~~Occlusion culling~~ done but now removed as unnecessary
 - [X] Distance shading
 - [X] Implement collisions
-- [ ] Fix graphical glitch when vertex is _exactly_ at 45 degrees from player (see GIF for example)
+- [X] Fix graphical glitch when vertex is _exactly_ at 45 degrees from player (see GIF for example)
 - [ ] Build sin & cos lookup tables in init (with lerp function? Or is near enough good enough?)
-- [ ] Test whether predefined pattern draw faster than ditherPattern (I suspect not, but a dither LUT _might_ help a bit)
-- [ ] Make the new lineSegment bits for raytrace in init and select the ones in view instead of generating new in raytrace
+- [X] Test whether predefined pattern draw faster than ditherPattern (Nope)
+- [X] Make the new lineSegment bits for raytrace in init and rotate them instead of generating new in raytrace
 - [ ] Make a branch that replaces points and distances with vector2Ds so we can use vector maths and transformations, e.g. by creating view_left and view_right _once_ then rotating it to update
-- [ ] Swap mini-map black wall tiles for transparent with white border (non-view) and solid transparent (in view) and remove solid background
 - [ ] Clean up the code
 - [ ] Implement map scrolling to allow bigger levels (infinite?)
-- [ ] Replace fixed values with variables for, e.g. FOV, view distance, tile size
+- [X] Replace fixed values with variables for, e.g. FOV, view distance, tile size
 - [ ] Replace the 'ray casting' to identify viewable walls with simple stored tile-offset test (8 directions would be plenty)
 - [ ] Add option to use 200x120 for drawing then 2x scaling for final
-- [ ] Think of a better way to deal with occlusion culling because it's only ~1 or 2fps better than just drawing everything
+- [X] Think of a better way to deal with occlusion culling because it's only ~1 or 2fps better than just drawing everything
 - [ ] Implement doors (think 1 smaller wall tile + 1 sprite door + 1 smaller wall tile)
 - [ ] Add demo enemies
 - [ ] Running & jumping
