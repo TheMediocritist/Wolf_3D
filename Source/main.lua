@@ -10,20 +10,19 @@ local deg <const> = math.deg
 local rad <const> = math.rad
 
 -- set up camera
-local camera <const> = {fov = 60, fov_div = 30, view_distance = 50, width = 400, width_div = 400/2, height = 500, height_div = 500/2}
+local camera <const> = {fov = 60, fov_div = 30, view_distance = 60, width = 400, width_div = 200, height = 500, height_div = 250}
 
 -- performance monitoring (to work out what's using CPU time)
 local perf_monitor <const> = table.create(0, 11)
 
 -- add custom menu items
 local menu = playdate.getSystemMenu()
-local draw_shaded, sort_polys, cull_polys, perfmon = true, true, true, false
+local draw_shaded, draw_debug, perfmon = true, true, false
 menu:addCheckmarkMenuItem("Shading", true, function(value)
     draw_shaded = value
 end)
-menu:addCheckmarkMenuItem("Sort/Cull", true, function(value)
-  sort_polys = value
-  cull_polys = value
+menu:addCheckmarkMenuItem("draw debug", true, function(value)
+  draw_debug = value
 end)
 menu:addCheckmarkMenuItem("perfmon", false, function(value)
   perfmon = value
@@ -148,23 +147,24 @@ function initialise()
 end
 
 function setUpCamera()
+  
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
   local required_angle = math.deg(math.atan(sprite_size/camera.view_distance))
-  local camera_rays = math.floor(camera.fov/required_angle) * 3-- TEMP!!!
-  local ray_angles = camera.fov/camera_rays
-  camera.direction = player_sprite.direction
+  local camera_rays = math.floor(camera.fov/required_angle) * 2 -- Temp until rays replaced with tree
+  camera.ray_angles = camera.fov/camera_rays
   camera.rays = camera_rays + 1 -- fence segments vs posts
-  camera.ray_angles = ray_angles
+  camera.direction = player_sprite.direction
   camera.ray_lines = table.create(camera.rays, 0)
   print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 10)/ 10 .. " degrees")
-  --camera.ray_lines = {}
   for i = 0, camera.rays do
-    local ray_direction = player_sprite.direction - camera.fov_div + camera.ray_angles * i
+    local ray_direction = (player_sprite.direction - camera.fov_div) + (camera.ray_angles * i)
     local ray_end_x = player_sprite.x + 60 * sin(rad(ray_direction))
     local ray_end_y = player_sprite.y - 60 * cos(rad(ray_direction))
-    camera.ray_lines[i + 1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
+    camera.ray_lines[i+1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
   end
+  printTable(camera.ray_lines)
 end
+
 
 function playdate.update()
     if initialised == false then initialise() end
@@ -182,7 +182,7 @@ function playdate.update()
       playdate.resetElapsedTime()
     end
     
-    for i = 1, camera.rays, -1 do
+    for i = 1, camera.rays do --, camera.rays -1  do
       gfx.setLineWidth(3)
       gfx.setColor(gfx.kColorWhite)
       gfx.drawLine(camera.ray_lines[i])
@@ -273,7 +273,7 @@ function updateView()
           
       
       if last_p > 0 then
-      
+        
       for i = 1, last_p do
         local p = p[i]
         p.player_distance = p.vertex:distanceToPoint(player)
@@ -369,10 +369,12 @@ function updateView()
                                             200 + p_obj.offset_x, 120 - p_obj.offset_y*4,
                                             200 + p_obj.offset_x, 120 + p_obj.offset_y*4)
               
-              if debug then
+              if draw_debug == true then
                 -- draw wall to top-down view
+                gfx.setColor(gfx.kColorWhite)
                 gfx.drawLine(   200 + p_obj.camera_distance * tan(rad(p_obj.camera_angle)), 128 - p_obj.camera_distance, 
                                 200 + p_plus.camera_distance * tan(rad(p_plus.camera_angle)), 128 - p_plus.camera_distance)
+                gfx.setColor(gfx.kColorBlack)
               end
           end
           if perfmon then
@@ -386,53 +388,53 @@ function updateView()
   
   local num_screen_polys = #screen_polys
   
-  if sort_polys == true and num_screen_polys > 0 then
-    table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
-  end
-  
-  if perfmon then
-    perf_monitor.projection_poly_sort.finish = playdate.getElapsedTime()
-    playdate.resetElapsedTime()
-  end
-  
-  if cull_polys == true then
-    if num_screen_polys > 0 then
-      -- determine if near polygons are blocking view of far polygons and if so, remove
-      local blocked_area = table.create(num_screen_polys, 0)
-      blocked_area[#blocked_area + 1] = table.create(0, 2)
-      blocked_area[1].left = screen_polys[1].left_angle
-      blocked_area[1].right = screen_polys[1].right_angle
-      
-      for i = 2, num_screen_polys do
-        local done = false
-        for j = 1, #blocked_area do
-          if screen_polys[i].left_angle >= blocked_area[j].left and screen_polys[i].right_angle <= blocked_area[j].right then
-            screen_polys[i].delete = true
-            done = true
-          elseif screen_polys[i].left_angle <= blocked_area[j].left and screen_polys[i].right_angle >= blocked_area[j].left then
-            blocked_area[j].left = screen_polys[i].left_angle
-            done = true
-          elseif screen_polys[i].right_angle >= blocked_area[j].right and screen_polys[i].left_angle <= blocked_area[j].right then
-            blocked_area[j].right = screen_polys[i].right_angle
-            done = true
-          end
-        end
-        
-        if done == false then
-          blocked_area[#blocked_area + 1] = table.create(0, 2)
-          blocked_area[#blocked_area].left = screen_polys[i].left_angle
-          blocked_area[#blocked_area].right = screen_polys[i].right_angle
-        end
-      end
-            
-      for i = num_screen_polys, 1, -1 do
-        if screen_polys[i].delete == true then
-          table.remove(screen_polys, i)
-          num_screen_polys -= 1
-        end
-      end
-    end
-  end
+  -- if sort_polys == true and num_screen_polys > 0 then
+  --   table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
+  -- end
+  -- 
+  -- if perfmon then
+  --   perf_monitor.projection_poly_sort.finish = playdate.getElapsedTime()
+  --   playdate.resetElapsedTime()
+  -- end
+  -- 
+  -- if cull_polys == true then
+  --   if num_screen_polys > 0 then
+  --     -- determine if near polygons are blocking view of far polygons and if so, remove
+  --     local blocked_area = table.create(num_screen_polys, 0)
+  --     blocked_area[#blocked_area + 1] = table.create(0, 2)
+  --     blocked_area[1].left = screen_polys[1].left_angle
+  --     blocked_area[1].right = screen_polys[1].right_angle
+  --     
+  --     for i = 2, num_screen_polys do
+  --       local done = false
+  --       for j = 1, #blocked_area do
+  --         if screen_polys[i].left_angle >= blocked_area[j].left and screen_polys[i].right_angle <= blocked_area[j].right then
+  --           screen_polys[i].delete = true
+  --           done = true
+  --         elseif screen_polys[i].left_angle <= blocked_area[j].left and screen_polys[i].right_angle >= blocked_area[j].left then
+  --           blocked_area[j].left = screen_polys[i].left_angle
+  --           done = true
+  --         elseif screen_polys[i].right_angle >= blocked_area[j].right and screen_polys[i].left_angle <= blocked_area[j].right then
+  --           blocked_area[j].right = screen_polys[i].right_angle
+  --           done = true
+  --         end
+  --       end
+  --       
+  --       if done == false then
+  --         blocked_area[#blocked_area + 1] = table.create(0, 2)
+  --         blocked_area[#blocked_area].left = screen_polys[i].left_angle
+  --         blocked_area[#blocked_area].right = screen_polys[i].right_angle
+  --       end
+  --     end
+  --           
+  --     for i = num_screen_polys, 1, -1 do
+  --       if screen_polys[i].delete == true then
+  --         table.remove(screen_polys, i)
+  --         num_screen_polys -= 1
+  --       end
+  --     end
+  --   end
+  -- end
   if perfmon then
     perf_monitor.projection_poly_cull.finish = playdate.getElapsedTime()
     playdate.resetElapsedTime()
@@ -457,7 +459,7 @@ function updateView()
     perf_monitor.projection_poly_draw.finish = playdate.getElapsedTime()
   end
 
-  if debug then
+  if draw_debug == true then
     gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(200, 128, 152, 80)
     gfx.drawLine(200, 128, 248, 80)
@@ -664,7 +666,7 @@ function makePlayer(x_pos, y_pos, direction)
         -- trace rays
           for i = 1, camera.rays do
               ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
-              for i = 1, math.min(#ray_hits, 2) do
+              for i = 1, math.min(#ray_hits, 3) do
                   ray_hits[i].inview = true
               end
           end
