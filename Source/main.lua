@@ -700,9 +700,7 @@ function makePlayer(x_pos, y_pos, direction)
       draw_these = table.create(9, 0)
       
       if angle >= 337.5 or angle < 22.5 then
-        local view_tiles = table.create(22, 0)
-        -- heading north
-        view_tiles = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [24] = true, [25] = true, [26] = true}
+        local view_tiles = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [24] = true, [25] = true, [26] = true}
         
         for i = 1, #wall_sprites do
           if view_tiles[wall_sprites[i].index] then
