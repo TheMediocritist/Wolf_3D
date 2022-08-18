@@ -200,7 +200,6 @@ function setUpCamera()
     camera.ray_lines[i+1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
   end
   printTable(camera.ray_lines)
-
   
 end
 
@@ -218,7 +217,7 @@ local function getVertices(wall_sprite)
   elseif (wall_sprite.y - 8) > player_sprite.y then return wall_sprite.view_vertices.n        -- wall is directly below player
   elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.s        -- wall is directly above player 
   end
-
+end
 
 function playdate.update()
     if initialised == false then initialise() end
@@ -249,7 +248,7 @@ function playdate.update()
       perf_monitor.sprites_draw.finish = playdate.getElapsedTime()
     end
     playdate.drawFPS(0,0)
->>>>>>> main
+
 end
 
 local function updateView()
