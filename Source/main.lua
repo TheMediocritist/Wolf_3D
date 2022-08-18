@@ -14,6 +14,7 @@ local floor <const> = math.floor
 local min <const> = math.min
 local max <const> = math.max
 local pow <const> = math.pow
+local fast_intersection <const> = geom.lineSegment.fast_intersection
 
 -- set up camera
 local camera <const> = {fov = 60, fov_div = 30, view_distance = 50, width = 400, width_div = 400/2, height = 500, height_div = 500/2}
@@ -35,11 +36,11 @@ menu:addCheckmarkMenuItem("perfmon", false, function(value)
   perfmon = value
 end)
 
-playdate.setMinimumGCTime(3) -- This is necessary to remove frequent stutters
+playdate.setMinimumGCTime(2) -- This is necessary to remove frequent stutters
 gfx.setColor(gfx.kColorBlack)
 playdate.display.setRefreshRate(40)
 
-local map_floor1 =  
+local map_floor1 <const> =  
 {{0,0,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1},
 {0,0,1,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1},
 {0,0,1,0,0,0,0,6,0,0,0,0,0,6,0,0,0,0,0,0,1},
@@ -65,7 +66,7 @@ local map_floor1 =
 {1,0,0,0,0,0,0,0,0,6,0,0,1,0,0,0,0,1,0,0,1},
 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}}
 
-local map = {
+local map <const> = {
   1, 1, 1, 1, 1, 1, 1,
   1, 0, 0, 0, 0, 0, 1,
   1, 0, 1, 1, 0, 1, 1,
@@ -81,15 +82,22 @@ local working_map_sprites = {}
 local initialised = false
 local map_sprite, player_sprite = nil, nil
 local sprite_size = 16
-local wall_sprites = {}
+local wall_sprites = table.create(31, 0)
 local player_start = {x = 24, y = 24, direction = 90}
-local rays = {}
-local draw_these = {}
+local draw_these = table.create(9, 0)
 local view = gfx.image.new(400, 240, gfx.kColorBlack)
 local background_image = gfx.image.new('Images/background_gradient')
 local debug = false
 
-function isWall(tile_x, tile_y)
+local function cos_rad(x)
+  return cos(rad(x))
+end
+
+local function sin_rad(x)
+  return sin(rad(x))
+end
+
+local function isWall(tile_x, tile_y)
   -- returns true if working map has a wall at tile_x, tile_y
   if working_map[(tile_y - 1) * 7 + tile_x] == 1 then
     return true
@@ -98,7 +106,7 @@ function isWall(tile_x, tile_y)
   end
 end
 
-function tileAt(x, y)
+local function tileAt(x, y)
   -- returns: tileid, column, row
   -- or false if outside working map bounds
   local column, row = ceil(x/16), ceil(y/16)
@@ -110,7 +118,7 @@ function tileAt(x, y)
   end
 end
 
-function spritesAt(column, row)
+local function spritesAt(column, row)
   -- returns {true, {sprite list} if mini map has a sprite at tile_x, tile_y
   local x = (column - 1) * 16 + 8
   local y = (row - 1) * 16 + 8
@@ -167,44 +175,28 @@ function setUpCamera()
   camera.ray_lines = table.create(camera.rays, 0)
   for i = 1, camera.rays do
     local ray_direction = player_sprite.direction - (camera.fov_div) + camera.ray_angles * (i - 1)
-    local ray_end_x = player_sprite.x + 60 * sin(rad(ray_direction))
-    local ray_end_y = player_sprite.y - 60 * cos(rad(ray_direction))
+    local ray_end_x = player_sprite.x + 60 * sin_rad(ray_direction)
+    local ray_end_y = player_sprite.y - 60 * cos_rad(ray_direction)
     camera.ray_lines[#camera.ray_lines + 1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
   end
 end
 
-function playdate.update()
-    if initialised == false then initialise() end
-    
-    updateView()
-    
-    gfx.sprite.redrawBackground()
-    
-    if perfmon then
-      playdate.resetElapsedTime()
-    end
-    gfx.sprite.update()
-    if perfmon then
-      perf_monitor.sprites_update.finish = playdate.getElapsedTime()
-      playdate.resetElapsedTime()
-    end
-    
-    for i = 1, camera.rays, -1 do
-      gfx.setLineWidth(3)
-      gfx.setColor(gfx.kColorWhite)
-      gfx.drawLine(camera.ray_lines[i])
-      gfx.setLineWidth(1)
-      gfx.setColor(gfx.kColorBlack)
-      gfx.drawLine(camera.ray_lines[i])
-    end
-    
-    if perfmon then
-      perf_monitor.sprites_draw.finish = playdate.getElapsedTime()
-    end
-    playdate.drawFPS(0,0)
+local function getVertices(wall_sprite)
+  -- Fetch vertices for projecting/drawing
+  if wall_sprite.x - 8 > player_sprite.x then
+      if wall_sprite.y - 8 > player_sprite.y then return wall_sprite.view_vertices.nw         -- wall is below and right of player
+      elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.sw   -- wall is above and right of player
+      else return wall_sprite.view_vertices.w end                                             -- wall is directly to right of player
+  elseif (wall_sprite.x + 8) < player_sprite.x then
+      if wall_sprite.y - 8 > player_sprite.y then return wall_sprite.view_vertices.ne         -- wall is below and left of player
+      elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.se   -- wall is above and left of player
+      else return wall_sprite.view_vertices.e end                                             -- wall is directly to left of player
+  elseif (wall_sprite.y - 8) > player_sprite.y then return wall_sprite.view_vertices.n        -- wall is directly below player
+  elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.s        -- wall is directly above player 
+  end
 end
 
-function updateView()
+local function updateView()
 
   gfx.lockFocus(view)
   background_image:draw(0, 0)
@@ -228,8 +220,7 @@ function updateView()
   
   local screen_polys = table.create(#draw_these, 0)
   local player = geom.point.new(player_sprite.x, player_sprite.y)
-  
-  local num_draw_these = #draw_these
+  local num_draw_these <const> = #draw_these
   
   if perfmon then
     perf_monitor.projection_load_vertices.start = playdate.getCurrentTimeMilliseconds()
@@ -248,7 +239,8 @@ function updateView()
     
     local p = table.create(#points, 0)
     for i = 1, #points do
-      p[i] = { vertex = points[i] }
+      p[i] = table.create(0, 3)
+      p[i].vertex = points[i]
     end
 
     local p1_obj <const> = p[1]
@@ -260,9 +252,9 @@ function updateView()
           local pp = p[i]
           pp.delta = player - pp.vertex
           local deltax, deltay = pp.delta:unpack()
-          pp.player_angle = deg(atan2(deltax, -deltay)) + 180
+          local player_angle = deg(atan2(deltax, -deltay)) + 180
           --if p[i].player_angle < 0 then p[i].player_angle += 360 end
-          pp.camera_angle = (pp.player_angle - player_sprite.direction) % 360
+          pp.camera_angle = (player_angle - player_sprite.direction) % 360
           if pp.camera_angle > 180 then pp.camera_angle -= 360 end
         end
             
@@ -276,16 +268,12 @@ function updateView()
               table.remove(p, last_p)
               last_p -= 1
           end
-        end
-      end
-          
-      
-      if last_p > 0 then
-      
+        end          
+            
       for i = 1, last_p do
         local p = p[i]
         p.player_distance = p.vertex:distanceToPoint(player)
-        p.camera_distance = p.player_distance * cos(rad(p.camera_angle))
+        p.camera_distance = p.player_distance * cos_rad(p.camera_angle)
       end
       
       if perfmon then
@@ -295,48 +283,48 @@ function updateView()
       end
       
       if p1_obj.camera_angle < -(camera.fov_div) then 
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[1]:unpack())
+          local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
               p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
               p1_obj.delta = p1_obj.vertex - player
               p1_obj.player_distance = p1_obj.vertex:distanceToPoint(player)
               p1_obj.camera_angle = -(camera.fov_div)
-              p1_obj.camera_distance = p1_obj.player_distance * cos(rad(p1_obj.camera_angle))
+              p1_obj.camera_distance = p1_obj.player_distance * cos_rad(p1_obj.camera_angle)
           end
           
       elseif p1_obj.camera_angle > ((camera.fov_div)) then
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
+          local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
   
           if intersects then
               p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
               p1_obj.delta = p1_obj.vertex - player
               p1_obj.player_distance = p1_obj.vertex:distanceToPoint(player)
               p1_obj.camera_angle = (camera.fov_div)
-              p1_obj.camera_distance = p1_obj.player_distance * cos(rad(p1_obj.camera_angle))
+              p1_obj.camera_distance = p1_obj.player_distance * cos_rad(p1_obj.camera_angle)
           end
       end
       
       local last_point_obj = p[#p]
       local last_last_point_obj = p[#p-1]
       if last_point_obj.camera_angle < (-(camera.fov_div)) then 
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[1]:unpack())
+          local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
               last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
               last_point_obj.delta = last_point_obj.vertex - player
               last_point_obj.player_distance = last_point_obj.vertex:distanceToPoint(player)
               last_point_obj.camera_angle = -(camera.fov_div)
-              last_point_obj.camera_distance = last_point_obj.player_distance * cos(rad(last_point_obj.camera_angle))
+              last_point_obj.camera_distance = last_point_obj.player_distance * cos_rad(last_point_obj.camera_angle)
           end
       elseif last_point_obj.camera_angle > camera.fov_div then
-         local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
+         local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
           if intersects then
               last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
               last_point_obj.delta = last_point_obj.vertex - player
               last_point_obj.player_distance = last_point_obj.vertex:distanceToPoint(player)
               last_point_obj.camera_angle = (camera.fov_div)
-              last_point_obj.camera_distance = last_point_obj.player_distance * cos(rad(last_point_obj.camera_angle))
+              last_point_obj.camera_distance = last_point_obj.player_distance * cos_rad(last_point_obj.camera_angle)
           end
       end
           
@@ -367,12 +355,16 @@ function updateView()
               poly.left_angle = min(p_obj.camera_angle, p_plus.camera_angle)
               poly.right_angle = max(p_obj.camera_angle, p_plus.camera_angle)
   
+              local p_obj_offset_x = 200 + p_obj.offset_x
+              local p_plus_offset_x = 200 + p_plus.offset_x
+              local p_obj_offset_y = p_obj.offset_y*4
+              local p_plus_offset_y = p_plus.offset_y*4
               poly.polygon = geom.polygon.new(
-                                            200 + p_obj.offset_x, 120 + p_obj.offset_y*4,
-                                            200 + p_plus.offset_x, 120 + p_plus.offset_y*4,
-                                            200 + p_plus.offset_x, 120 - p_plus.offset_y*4,
-                                            200 + p_obj.offset_x, 120 - p_obj.offset_y*4,
-                                            200 + p_obj.offset_x, 120 + p_obj.offset_y*4)
+                                            p_obj_offset_x, 120 + p_obj_offset_y,
+                                            p_plus_offset_x, 120 + p_plus_offset_y,
+                                            p_plus_offset_x, 120 - p_plus_offset_y,
+                                            p_obj_offset_x, 120 - p_obj_offset_y,
+                                            p_obj_offset_x, 120 + p_obj_offset_y)
               
               if debug then
                 -- draw wall to top-down view
@@ -391,7 +383,7 @@ function updateView()
   
   local num_screen_polys = #screen_polys
   
-  if sort_polys == true and num_screen_polys > 0 then
+  if sort_polys and num_screen_polys > 0 then
     table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
   end
   
@@ -404,33 +396,39 @@ function updateView()
       -- determine if near polygons are blocking view of far polygons and if so, remove
       local blocked_area = table.create(num_screen_polys, 0)
       blocked_area[#blocked_area + 1] = table.create(0, 2)
-      blocked_area[1].left = screen_polys[1].left_angle
-      blocked_area[1].right = screen_polys[1].right_angle
+      local first_blocked_area = blocked_area[1]
+      local first_screen_poly = screen_polys[1]
+      first_blocked_area.left = first_screen_poly.left_angle
+      first_blocked_area.right = first_screen_poly.right_angle
       
       for i = 2, num_screen_polys do
         local done = false
         for j = 1, #blocked_area do
-          if screen_polys[i].left_angle >= blocked_area[j].left and screen_polys[i].right_angle <= blocked_area[j].right then
-            screen_polys[i].delete = true
+          local poly <const> = screen_polys[i]
+          local blocked <const> = blocked_area[j]
+          if poly.left_angle >= blocked.left and poly.right_angle <= blocked.right then
+            poly.delete = true
             done = true
-          elseif screen_polys[i].left_angle <= blocked_area[j].left and screen_polys[i].right_angle >= blocked_area[j].left then
-            blocked_area[j].left = screen_polys[i].left_angle
+          elseif poly.left_angle <= blocked.left and poly.right_angle >= blocked.left then
+            blocked.left = poly.left_angle
             done = true
-          elseif screen_polys[i].right_angle >= blocked_area[j].right and screen_polys[i].left_angle <= blocked_area[j].right then
-            blocked_area[j].right = screen_polys[i].right_angle
+          elseif poly.right_angle >= blocked.right and poly.left_angle <= blocked.right then
+            blocked.right = poly.right_angle
             done = true
           end
         end
         
-        if done == false then
+        if not done then
+          local poly = screen_polys[i]
           blocked_area[#blocked_area + 1] = table.create(0, 2)
-          blocked_area[#blocked_area].left = screen_polys[i].left_angle
-          blocked_area[#blocked_area].right = screen_polys[i].right_angle
+          blocked_area[#blocked_area].left = poly.left_angle
+          blocked_area[#blocked_area].right = poly.right_angle
         end
       end
             
       for i = num_screen_polys, 1, -1 do
-        if screen_polys[i].delete == true then
+        local poly = screen_polys[i]
+        if poly.delete == true then
           table.remove(screen_polys, i)
           num_screen_polys -= 1
         end
@@ -442,18 +440,10 @@ function updateView()
     playdate.resetElapsedTime()
   end
     
-  if draw_shaded == false then
+  for i = num_screen_polys, 1, -1 do
     gfx.setColor(gfx.kColorWhite)
-    for i = num_screen_polys, 1, -1 do
-      gfx.drawPolygon(screen_polys[i].polygon)
-    end
-  else
-    for i = num_screen_polys, 1, -1 do
-      gfx.setColor(gfx.kColorWhite)
-      gfx.setDitherPattern(0.1+(screen_polys[i].distance/80),gfx.image.kDitherTypeBayer4x4)
-      gfx.fillPolygon(screen_polys[i].polygon)
-    end
-    gfx.setColor(gfx.kColorBlack)
+    gfx.setDitherPattern(0.1+(screen_polys[i].distance/80),gfx.image.kDitherTypeBayer4x4)
+    gfx.fillPolygon(screen_polys[i].polygon)
   end
   
   if perfmon then
@@ -469,6 +459,38 @@ function updateView()
   gfx.setColor(gfx.kColorBlack)
   gfx.unlockFocus()
     
+end
+
+function playdate.update()
+    if initialised == false then initialise() end
+    
+    updateView()
+    
+    gfx.sprite.redrawBackground()
+    
+    if perfmon then
+      playdate.resetElapsedTime()
+    end
+    
+    gfx.sprite.update()
+
+    -- useful for debugging but doesn't seem to actually... work    
+    -- for i = 1, camera.rays, -1 do
+    --   gfx.setLineWidth(3)
+    --   gfx.setColor(gfx.kColorWhite)
+    --   gfx.drawLine(camera.ray_lines[i])
+    --   gfx.setLineWidth(1)
+    --   gfx.setColor(gfx.kColorBlack)
+    --   gfx.drawLine(camera.ray_lines[i])
+    -- end
+    
+    if perfmon then
+      perf_monitor.sprites_update.finish = playdate.getElapsedTime()
+      playdate.resetElapsedTime()
+      perf_monitor.sprites_draw.finish = playdate.getElapsedTime()
+    end
+    
+    playdate.drawFPS(0,0)
 end
 
 function makeWallSprites(map, columns, rows)
@@ -599,8 +621,8 @@ function makePlayer(x_pos, y_pos, direction)
         if playdate.buttonIsPressed('right') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe right
-                movex = sin(rad(s.direction + 90))
-                movey = cos(rad(s.direction + 90))
+                movex = sin_rad(s.direction + 90)
+                movey = cos_rad(s.direction + 90)
                 s.moved = true
             else
                 -- turn right
@@ -613,8 +635,8 @@ function makePlayer(x_pos, y_pos, direction)
         if playdate.buttonIsPressed('left') then 
             if playdate.buttonIsPressed('b') then
                 -- strafe left
-                movex = sin(rad(s.direction - 90))
-                movey = cos(rad(s.direction - 90))
+                movex = sin_rad(s.direction - 90)
+                movey = cos_rad(s.direction - 90)
                 s.moved = true
             else
                 -- turn left
@@ -625,13 +647,13 @@ function makePlayer(x_pos, y_pos, direction)
             end 
         end
         if playdate.buttonIsPressed('up') then
-            movex = sin(rad(s.direction))
-            movey = cos(rad(s.direction))
+            movex = sin_rad(s.direction)
+            movey = cos_rad(s.direction)
             s.moved = true
         end
         if playdate.buttonIsPressed('down') then
-            movex = sin(rad(s.direction+180))
-            movey = cos(rad(s.direction+180))
+            movex = sin_rad(s.direction+180)
+            movey = cos_rad(s.direction+180)
             s.moved = true
         end
         
@@ -659,7 +681,7 @@ function makePlayer(x_pos, y_pos, direction)
     end
     
     function s:raytrace()
-        draw_these = {}
+        draw_these = table.create(9, 0)
         -- trace rays
           for i = 1, camera.rays do
               ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
@@ -675,7 +697,7 @@ function makePlayer(x_pos, y_pos, direction)
     end
     
     function s:tileSelect(angle)
-      draw_these = {}
+      draw_these = table.create(9, 0)
       
       if angle >= 337.5 or angle < 22.5 then
         local view_tiles = table.create(22, 0)
@@ -717,19 +739,4 @@ function setupPerformanceMonitor()
   perf_monitor.sprites_update = {start = 0, finish = 0, ms = 0, perc = 0}
   perf_monitor.sprites_draw = {start = 0, finish = 0, ms = 0, perc = 0}
   
-end
-
-function getVertices(wall_sprite)
-  -- Fetch vertices for projecting/drawing
-  if wall_sprite.x - 8 > player_sprite.x then
-      if wall_sprite.y - 8 > player_sprite.y then return wall_sprite.view_vertices.nw         -- wall is below and right of player
-      elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.sw   -- wall is above and right of player
-      else return wall_sprite.view_vertices.w end                                             -- wall is directly to right of player
-  elseif (wall_sprite.x + 8) < player_sprite.x then
-      if wall_sprite.y - 8 > player_sprite.y then return wall_sprite.view_vertices.ne         -- wall is below and left of player
-      elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.se   -- wall is above and left of player
-      else return wall_sprite.view_vertices.e end                                             -- wall is directly to left of player
-  elseif (wall_sprite.y - 8) > player_sprite.y then return wall_sprite.view_vertices.n        -- wall is directly below player
-  elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.s        -- wall is directly above player 
-  end
 end
