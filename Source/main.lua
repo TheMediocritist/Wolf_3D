@@ -184,23 +184,23 @@ end
 
 function setUpCamera()
   
+  print("fov: " .. camera.fov)
+  
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
-
   local required_angle = math.deg(math.atan(sprite_size/camera.view_distance))
   local camera_rays = math.floor(camera.fov/required_angle)  -- Temp until rays replaced with tree
   camera.ray_angles = camera.fov/camera_rays
   camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.direction = player_sprite.direction
-  camera.ray_lines = table.create(camera.rays, 0)
-  print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 10)/ 10 .. " degrees")
-  for i = 0, camera.rays do
-    local ray_direction = (player_sprite.direction - camera.fov_div) + (camera.ray_angles * i)
-    local ray_end_x = player_sprite.x + camera.view_distance * sin(rad(ray_direction))
-    local ray_end_y = player_sprite.y - camera.view_distance * cos(rad(ray_direction))
-    camera.ray_lines[i+1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
+  camera.ray_lines = table.create(camera.rays)
+  print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 100)/100 .. " degrees")
+  for i = 1, camera.rays do
+    local ray_direction = (player_sprite.direction - camera.fov_div) + (camera.ray_angles * (i - 1))
+    local ray_end_x = player_sprite.x + camera.view_distance * sin_rad(ray_direction)
+    local ray_end_y = player_sprite.y - camera.view_distance * cos_rad(ray_direction)
+    camera.ray_lines[i] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
   end
-  printTable(camera.ray_lines)
-  
+  --printTable(camera.ray_lines)
 end
 
 
@@ -235,7 +235,7 @@ function playdate.update()
       playdate.resetElapsedTime()
     end
     
-    for i = 1, camera.rays, (camera.rays -1)  do
+    for i = 1, camera.rays do--, (camera.rays -1)  do
       gfx.setLineWidth(3)
       gfx.setColor(gfx.kColorWhite)
       gfx.drawLine(camera.ray_lines[i])
@@ -304,28 +304,30 @@ local function updateView()
     local last_p = #p
       if last_p > 0 then
         for i = 1, last_p do
-          local pp = p[i]
-          pp.delta = player - pp.vertex
-          local deltax, deltay = pp.delta:unpack()
-          local player_angle = deg(atan2(deltax, -deltay)) + 180
-          --if p[i].player_angle < 0 then p[i].player_angle += 360 end
-          pp.camera_angle = (player_angle - player_sprite.direction) % 360
-          if pp.camera_angle > 180 then pp.camera_angle -= 360 end
+        local pp = p[i]
+        pp.delta = player - pp.vertex
+        local deltax, deltay = pp.delta:unpack()
+        local player_angle = deg(atan2(deltax, -deltay)) + 180
+        if player_angle < 0 then player_angle += 360 end
+        pp.camera_angle = (player_angle - player_sprite.direction) % 360
+        if pp.camera_angle > 180 then pp.camera_angle -= 360 end
+      end
+            
+      -- remove vertices that make a wall completely outside view
+      if last_p == 3 then
+        if p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
+            table.remove(p, 1)
+            last_p -= 1
         end
-            
-        if last_p == 3 then
-          if p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
-              table.remove(p, 1)
-              last_p -= 1
-          end
-    
-          if p[last_p].camera_angle >= (camera.fov_div) and p[last_p-1].camera_angle >= (camera.fov_div) then
-              table.remove(p, last_p)
-              last_p -= 1
-          end
-
-        end          
-            
+        
+        if p[last_p].camera_angle >= (camera.fov_div) and p[last_p-1].camera_angle >= (camera.fov_div) then
+            table.remove(p, last_p)
+            last_p -= 1
+        end
+        
+      end          
+      
+      -- calculate distance and angle from player to each vertex
       for i = 1, last_p do
         local p = p[i]
         p.player_distance = p.vertex:distanceToPoint(player)
@@ -337,8 +339,10 @@ local function updateView()
         perf_monitor.projection_vertex_clip.start = playdate.getCurrentTimeMilliseconds()
         playdate.resetElapsedTime()
       end
-
-      if p1_obj.camera_angle < -(camera.fov_div) then 
+      
+      -- check if wall extends outside view and behind player, and if so
+      -- determine where it crosses into view and shift it to this point
+      if p1_obj.camera_angle < -(camera.fov_div) and p[1].player_distance < sprite_size then 
           local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
@@ -349,7 +353,7 @@ local function updateView()
               p1_obj.camera_distance = p1_obj.player_distance * cos_rad(p1_obj.camera_angle)
           end
           
-      elseif p1_obj.camera_angle > ((camera.fov_div)) then
+      elseif p1_obj.camera_angle > ((camera.fov_div)) and p[1].player_distance < sprite_size then
           local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
   
           if intersects then
@@ -364,7 +368,7 @@ local function updateView()
       local last_point_obj = p[#p]
       local last_last_point_obj = p[#p-1]
 
-      if last_point_obj.camera_angle < (-(camera.fov_div)) then 
+      if last_point_obj.camera_angle < (-(camera.fov_div)) and last_point_obj.player_distance < sprite_size then 
           local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
@@ -375,7 +379,7 @@ local function updateView()
               last_point_obj.camera_distance = last_point_obj.player_distance * cos_rad(last_point_obj.camera_angle)
           end
           
-      elseif last_point_obj.camera_angle > camera.fov_div then
+      elseif last_point_obj.camera_angle > camera.fov_div and last_point_obj.player_distance < sprite_size then
          local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
 
           if intersects then
@@ -392,6 +396,7 @@ local function updateView()
         playdate.resetElapsedTime()
       end
       
+      -- determine how far vertex is offset from centre of view
       for i = 1, last_p do
         local pp = p[i]
         pp.offset_x = (pp.camera_angle/(camera.fov_div)) * (camera.width_div)
@@ -402,100 +407,47 @@ local function updateView()
         perf_monitor.projection_vertex_project.finish = playdate.getElapsedTime() * num_draw_these
         playdate.resetElapsedTime()
       end
-                    
-          local last_point = #p
-
-          for i = 1, last_point - 1 do
-              screen_polys[#screen_polys+1] = table.create(0, 4)
-              local p_obj = p[i]
-              local p_plus = p[i+1]
-              local poly = screen_polys[#screen_polys]
-              poly.distance = (p_obj.camera_distance + p_plus.camera_distance) * 0.5
-              poly.left_angle = min(p_obj.camera_angle, p_plus.camera_angle)
-              poly.right_angle = max(p_obj.camera_angle, p_plus.camera_angle)
-  
-              local p_obj_offset_x = 200 + p_obj.offset_x
-              local p_plus_offset_x = 200 + p_plus.offset_x
-              local p_obj_offset_y = p_obj.offset_y*4
-              local p_plus_offset_y = p_plus.offset_y*4
-              poly.polygon = geom.polygon.new(
-                                            p_obj_offset_x, 120 + p_obj_offset_y,
-                                            p_plus_offset_x, 120 + p_plus_offset_y,
-                                            p_plus_offset_x, 120 - p_plus_offset_y,
-                                            p_obj_offset_x, 120 - p_obj_offset_y,
-                                            p_obj_offset_x, 120 + p_obj_offset_y)
-              
-              if draw_debug then
-                -- draw wall to top-down view
-                gfx.setColor(gfx.kColorWhite)
-                gfx.drawLine(   200 + p_obj.camera_distance * tan(rad(p_obj.camera_angle)), 128 - p_obj.camera_distance, 
-                                200 + p_plus.camera_distance * tan(rad(p_plus.camera_angle)), 128 - p_plus.camera_distance)
-                gfx.setColor(gfx.kColorBlack)
-              end
-          end
-          if perfmon then
-            perf_monitor.projection_poly_make.finish = playdate.getElapsedTime() * num_draw_these
-            playdate.resetElapsedTime()
-          end
+      
+      local last_point = #p
+      
+      -- convert vertices to screen coordinates using offsets, and make polygon
+      for i = 1, last_point - 1 do
+        screen_polys[#screen_polys+1] = table.create(0, 4)
+        local p_obj = p[i]
+        local p_plus = p[i+1]
+        local poly = screen_polys[#screen_polys]
+        poly.distance = (p_obj.camera_distance + p_plus.camera_distance) * 0.5
+        poly.left_angle = min(p_obj.camera_angle, p_plus.camera_angle)
+        poly.right_angle = max(p_obj.camera_angle, p_plus.camera_angle)
+        local p_obj_offset_x = 200 + p_obj.offset_x
+        local p_plus_offset_x = 200 + p_plus.offset_x
+        local p_obj_offset_y = p_obj.offset_y*4
+        local p_plus_offset_y = p_plus.offset_y*4
+        poly.polygon = geom.polygon.new(
+                                      p_obj_offset_x, 120 + p_obj_offset_y,
+                                      p_plus_offset_x, 120 + p_plus_offset_y,
+                                      p_plus_offset_x, 120 - p_plus_offset_y,
+                                      p_obj_offset_x, 120 - p_obj_offset_y,
+                                      p_obj_offset_x, 120 + p_obj_offset_y)
+        
+        if draw_debug then
+          -- draw wall to top-down view
+          gfx.setColor(gfx.kColorWhite)
+          gfx.drawLine(   200 + p_obj.camera_distance * tan(rad(p_obj.camera_angle)), 128 - p_obj.camera_distance, 
+                          200 + p_plus.camera_distance * tan(rad(p_plus.camera_angle)), 128 - p_plus.camera_distance)
+          gfx.setColor(gfx.kColorBlack)
+        end
+      end
+      
+      if perfmon then
+        perf_monitor.projection_poly_make.finish = playdate.getElapsedTime() * num_draw_these
+        playdate.resetElapsedTime()
       end
     end
+  end
 
   -- Draw polygons
-  
   local num_screen_polys = #screen_polys
-  
-  -- if sort_polys == true and num_screen_polys > 0 then
-  --   table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
-  -- end
-  -- 
-  -- if perfmon then
-  --   perf_monitor.projection_poly_sort.finish = playdate.getElapsedTime()
-  --   playdate.resetElapsedTime()
-  -- end
-  -- 
-  -- if cull_polys == true then
-  --   if num_screen_polys > 0 then
-  --     -- determine if near polygons are blocking view of far polygons and if so, remove
-  --     local blocked_area = table.create(num_screen_polys, 0)
-  --     blocked_area[#blocked_area + 1] = table.create(0, 2)
-  --     blocked_area[1].left = screen_polys[1].left_angle
-  --     blocked_area[1].right = screen_polys[1].right_angle
-  --     
-  --     for i = 2, num_screen_polys do
-  --       local done = false
-  --       for j = 1, #blocked_area do
-  --         if screen_polys[i].left_angle >= blocked_area[j].left and screen_polys[i].right_angle <= blocked_area[j].right then
-  --           screen_polys[i].delete = true
-  --           done = true
-  --         elseif screen_polys[i].left_angle <= blocked_area[j].left and screen_polys[i].right_angle >= blocked_area[j].left then
-  --           blocked_area[j].left = screen_polys[i].left_angle
-  --           done = true
-  --         elseif screen_polys[i].right_angle >= blocked_area[j].right and screen_polys[i].left_angle <= blocked_area[j].right then
-  --           blocked_area[j].right = screen_polys[i].right_angle
-  --           done = true
-  --         end
-  --       end
-  --       
-  --       if done == false then
-  --         blocked_area[#blocked_area + 1] = table.create(0, 2)
-  --         blocked_area[#blocked_area].left = screen_polys[i].left_angle
-  --         blocked_area[#blocked_area].right = screen_polys[i].right_angle
-  --       end
-  --     end
-  --           
-  --     for i = num_screen_polys, 1, -1 do
-  --       if screen_polys[i].delete == true then
-  --         table.remove(screen_polys, i)
-  --         num_screen_polys -= 1
-  --       end
-  --     end
-  --   end
-  -- end
-
-  if perfmon then
-    perf_monitor.projection_poly_cull.finish = playdate.getElapsedTime()
-    playdate.resetElapsedTime()
-  end
     
   for i = num_screen_polys, 1, -1 do
     gfx.setColor(gfx.kColorWhite)
@@ -531,15 +483,15 @@ function playdate.update()
     
     gfx.sprite.update()
 
-    -- useful for debugging but doesn't seem to actually... work    
-    -- for i = 1, camera.rays, -1 do
-    --   gfx.setLineWidth(3)
-    --   gfx.setColor(gfx.kColorWhite)
-    --   gfx.drawLine(camera.ray_lines[i])
-    --   gfx.setLineWidth(1)
-    --   gfx.setColor(gfx.kColorBlack)
-    --   gfx.drawLine(camera.ray_lines[i])
-    -- end
+    --useful for debugging but doesn't seem to actually... work    
+    for i = 1, camera.rays, camera.rays - 1 do
+      gfx.setLineWidth(3)
+      gfx.setColor(gfx.kColorWhite)
+      gfx.drawLine(camera.ray_lines[i])
+      gfx.setLineWidth(1)
+      gfx.setColor(gfx.kColorBlack)
+      gfx.drawLine(camera.ray_lines[i])
+    end
     
     if perfmon then
       perf_monitor.sprites_update.finish = playdate.getElapsedTime()
@@ -727,8 +679,8 @@ function makePlayer(x_pos, y_pos, direction)
     s:setCenter(0.5, 0.5)
     s.collisionResponse = gfx.sprite.kCollisionTypeSlide
     s.rotate_transform = playdate.geometry.affineTransform.new()
-    s.sin_dir = sin(rad(s.direction))
-    s.cos_dir = cos(rad(s.direction))
+    s.sin_dir = sin_rad(s.direction)
+    s.cos_dir = cos_rad(s.direction)
     function s:update()
       if perfmon then
         playdate.resetElapsedTime()
@@ -815,25 +767,6 @@ function makePlayer(x_pos, y_pos, direction)
               end
           end
     end
-    
-    -- function s:tileSelect(angle)
-    --   draw_these = {}
-    --   
-    --   if angle >= 337.5 or angle < 22.5 then
-    --     local view_tiles = table.create(22, 0)
-    --     -- heading north
-    --     view_tiles = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [24] = true, [25] = true, [26] = true}
-    --     
-    --     for i = 1, #wall_sprites do
-    --       if view_tiles[wall_sprites[i].index] then
-    --         wall_sprites[i].inview = true
-    --         draw_these[#draw_these + 1] = wall_sprites[i]
-    --       end
-    --     end
-    --     
-    --     view_tiles = nil
-    --   end
-    -- end
     
     s:add()
     s:moveTo(x_pos, y_pos)
