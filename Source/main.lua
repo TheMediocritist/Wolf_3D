@@ -17,7 +17,7 @@ local pow <const> = math.pow
 local fast_intersection <const> = geom.lineSegment.fast_intersection
 
 -- set up camera
-local camera <const> = {fov = 70, fov_div = 35, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
+local camera <const> = {fov = 90, fov_div = 45, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
 
 -- performance monitoring (to work out what's using CPU time)
 local perf_monitor <const> = table.create(0, 11)
@@ -192,7 +192,7 @@ function setUpCamera()
   camera.ray_angles = camera.fov/camera_rays
   camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.direction = player_sprite.direction
-  camera.ray_lines = table.create(camera.rays)
+  camera.ray_lines = table.create(camera.rays, 0)
   print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 100)/100 .. " degrees")
   for i = 1, camera.rays do
     local ray_direction = (player_sprite.direction - camera.fov_div) + (camera.ray_angles * (i - 1))
@@ -340,9 +340,15 @@ local function updateView()
         playdate.resetElapsedTime()
       end
       
+      print("before clipping")
+      for i = 1, #p do
+        if p[i].camera_angle < (-camera.fov_div) or p[i].camera_angle > (camera.fov_div) then
+          printTable(p[i])
+        end
+      end
       -- check if wall extends outside view and behind player, and if so
       -- determine where it crosses into view and shift it to this point
-      if p1_obj.camera_angle < -(camera.fov_div) and p[1].player_distance < sprite_size then 
+      if p1_obj.camera_angle < -(camera.fov_div) then --and p[1].camera_distance < sprite_size then 
           local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
@@ -353,7 +359,7 @@ local function updateView()
               p1_obj.camera_distance = p1_obj.player_distance * cos_rad(p1_obj.camera_angle)
           end
           
-      elseif p1_obj.camera_angle > ((camera.fov_div)) and p[1].player_distance < sprite_size then
+      elseif p1_obj.camera_angle > ((camera.fov_div)) then --and p[1].camera_distance < sprite_size then
           local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
   
           if intersects then
@@ -367,8 +373,8 @@ local function updateView()
       
       local last_point_obj = p[#p]
       local last_last_point_obj = p[#p-1]
-
-      if last_point_obj.camera_angle < (-(camera.fov_div)) and last_point_obj.player_distance < sprite_size then 
+      
+      if last_point_obj.camera_angle < (-(camera.fov_div)) and last_point_obj.camera_distance < sprite_size then 
           local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[1]:unpack())
           
           if intersects then
@@ -379,7 +385,7 @@ local function updateView()
               last_point_obj.camera_distance = last_point_obj.player_distance * cos_rad(last_point_obj.camera_angle)
           end
           
-      elseif last_point_obj.camera_angle > camera.fov_div and last_point_obj.player_distance < sprite_size then
+      elseif last_point_obj.camera_angle > camera.fov_div and last_point_obj.camera_distance < sprite_size then
          local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
 
           if intersects then
@@ -390,7 +396,14 @@ local function updateView()
               last_point_obj.camera_distance = last_point_obj.player_distance * cos_rad(last_point_obj.camera_angle)
           end
       end
-          
+      
+      print("after clipping")
+      for i = 1, #p do
+        if p[i].camera_angle < (-camera.fov_div) or p[i].camera_angle > (camera.fov_div) then
+          printTable(p[i])
+        end
+      end
+      
       if perfmon then
         perf_monitor.projection_vertex_clip.finish = playdate.getElapsedTime() * num_draw_these
         playdate.resetElapsedTime()
@@ -483,9 +496,11 @@ function playdate.update()
     
     gfx.sprite.update()
 
-    --useful for debugging but doesn't seem to actually... work    
-    for i = 1, camera.rays, camera.rays - 1 do
-      gfx.setLineWidth(3)
+    -- draw camera rays over minimap   
+    -- draw only first at last rays: for i = 1, camera.rays, camera.rays - 1 do
+    -- draw all rays: for i = 1, camera.rays do
+    for i = 1, camera.rays do
+      gfx.setLineWidth(2)
       gfx.setColor(gfx.kColorWhite)
       gfx.drawLine(camera.ray_lines[i])
       gfx.setLineWidth(1)
