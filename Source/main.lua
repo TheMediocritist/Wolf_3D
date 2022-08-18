@@ -24,7 +24,7 @@ local perf_monitor <const> = table.create(0, 11)
 
 -- add custom menu items
 local menu = playdate.getSystemMenu()
-local draw_shaded, sort_polys, cull_polys, perfmon = true, true, true, false
+local draw_shaded, sort_polys, cull_polys, perfmon = true, false, false, false
 menu:addCheckmarkMenuItem("Shading", true, function(value)
     draw_shaded = value
 end)
