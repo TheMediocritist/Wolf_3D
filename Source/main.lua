@@ -184,8 +184,6 @@ end
 
 function setUpCamera()
   
-  print("fov: " .. camera.fov)
-  
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
   local required_angle = math.deg(math.atan(sprite_size/camera.view_distance))
   local camera_rays = math.floor(camera.fov/required_angle)  -- Temp until rays replaced with tree
@@ -312,20 +310,27 @@ local function updateView()
         pp.camera_angle = (player_angle - player_sprite.direction) % 360
         if pp.camera_angle > 180 then pp.camera_angle -= 360 end
       end
-            
+      
+      print("before removing walls outside fov range of " .. -(camera.fov_div) .. " to " .. camera.fov_div .. " degrees")
+      printTable(p1_obj)
+      printTable(p[last_p])
+      
       -- remove vertices that make a wall completely outside view
       if last_p == 3 then
-        if p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
+        if p[last_p].camera_angle >= (camera.fov_div) and p[last_p-1].camera_angle >= (camera.fov_div) then
+              table.remove(p, last_p)
+              last_p -= 1
+        end
+        
+      elseif p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
             table.remove(p, 1)
             last_p -= 1
-        end
+      end
         
-        if p[last_p].camera_angle >= (camera.fov_div) and p[last_p-1].camera_angle >= (camera.fov_div) then
-            table.remove(p, last_p)
-            last_p -= 1
-        end
-        
-      end          
+      -- end          
+      print("after removing walls outside view")
+      printTable(p1_obj)
+      printTable(p[last_p])
       
       -- calculate distance and angle from player to each vertex
       for i = 1, last_p do
