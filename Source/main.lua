@@ -311,26 +311,28 @@ local function updateView()
         if pp.camera_angle > 180 then pp.camera_angle -= 360 end
       end
       
-      print("before removing walls outside fov range of " .. -(camera.fov_div) .. " to " .. camera.fov_div .. " degrees")
-      printTable(p1_obj)
-      printTable(p[last_p])
+      -- print("before removing walls outside fov range of " .. -(camera.fov_div) .. " to " .. camera.fov_div .. " degrees")
+      -- printTable(p1_obj)
+      -- printTable(p[last_p])
       
       -- remove vertices that make a wall completely outside view
-      if last_p == 3 then
+      -- if last_p == 3 then
         if p[last_p].camera_angle >= (camera.fov_div) and p[last_p-1].camera_angle >= (camera.fov_div) then
               table.remove(p, last_p)
               last_p -= 1
         end
         
-      elseif p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
+        if p1_obj.camera_angle <= -(camera.fov_div) and p2_obj.camera_angle <= -(camera.fov_div) then
             table.remove(p, 1)
             last_p -= 1
-      end
+        end
+      -- else 
+        
         
       -- end          
-      print("after removing walls outside view")
-      printTable(p1_obj)
-      printTable(p[last_p])
+      -- print("after removing walls outside view")
+      -- printTable(p1_obj)
+      -- printTable(p[last_p])
       
       -- calculate distance and angle from player to each vertex
       for i = 1, last_p do
@@ -351,22 +353,32 @@ local function updateView()
           printTable(p[i])
         end
       end
+      
       -- check if wall extends outside view and behind player, and if so
       -- determine where it crosses into view and shift it to this point
-      if p1_obj.camera_angle < -(camera.fov_div) then --and p[1].camera_distance < sprite_size then 
-          local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[1]:unpack())
+      print("p1_obj:")
+      printTable(p1_obj)
+      if p1_obj.camera_angle < -(camera.fov_div) then--and p[1].camera_distance < sprite_size then 
+          -- local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[1]:unpack())
+          local ls = geom.lineSegment.new(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y)
+          local intersects, point = camera.ray_lines[1]:intersectsLineSegment(ls)
           
           if intersects then
-              p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
+              p1_obj.vertex = point
               p1_obj.delta = p1_obj.vertex - player
               p1_obj.player_distance = p1_obj.vertex:distanceToPoint(player)
               p1_obj.camera_angle = -(camera.fov_div)
               p1_obj.camera_distance = p1_obj.player_distance * cos_rad(p1_obj.camera_angle)
           end
+      end
+      print("p1_obj:")
+      printTable(p1_obj)
+      
+      if p1_obj.camera_angle > ((camera.fov_div)) and p[1].camera_distance < sprite_size then
+          -- local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
+          local ls = geom.lineSegment.new(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y)
+          local intersects, point = camera.ray_lines[camera.rays]:intersectsLineSegment(ls)
           
-      elseif p1_obj.camera_angle > ((camera.fov_div)) then --and p[1].camera_distance < sprite_size then
-          local intersects, new_point_x, new_point_y = fast_intersection(p2_obj.vertex.x, p2_obj.vertex.y, p1_obj.vertex.x, p1_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
-  
           if intersects then
               p1_obj.vertex = geom.point.new(new_point_x, new_point_y)
               p1_obj.delta = p1_obj.vertex - player
@@ -376,14 +388,23 @@ local function updateView()
           end
       end
       
-      local last_point_obj = p[#p]
-      local last_last_point_obj = p[#p-1]
+      local last_point_obj = p[last_p]
+      print("last_p: " .. last_p)
+      print("last_point_obj")
+      printTable(last_point_obj)
+      local last_last_point_obj = p[last_p-1]
+      print("last_last_p: " .. last_p - 1)
+      print("last_last_point_obj")
+      printTable(last_last_point_obj)
       
       if last_point_obj.camera_angle < (-(camera.fov_div)) and last_point_obj.camera_distance < sprite_size then 
-          local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[1]:unpack())
+          -- local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[1]:unpack())
+          -- 
+          local ls = geom.lineSegment.new(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y)
+          local intersects, point = camera.ray_lines[1]:intersectsLineSegment(ls)
           
           if intersects then
-              last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
+              last_point_obj.vertex = point
               last_point_obj.delta = last_point_obj.vertex - player
               last_point_obj.player_distance = last_point_obj.vertex:distanceToPoint(player)
               last_point_obj.camera_angle = -(camera.fov_div)
@@ -391,10 +412,12 @@ local function updateView()
           end
           
       elseif last_point_obj.camera_angle > camera.fov_div and last_point_obj.camera_distance < sprite_size then
-         local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
-
+         -- local intersects, new_point_x, new_point_y = fast_intersection(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y, camera.ray_lines[#camera.ray_lines]:unpack())
+        local ls = geom.lineSegment.new(last_point_obj.vertex.x, last_point_obj.vertex.y, last_last_point_obj.vertex.x, last_last_point_obj.vertex.y)
+        local intersects, point = camera.ray_lines[camera.rays]:intersectsLineSegment(ls)
+        
           if intersects then
-              last_point_obj.vertex = geom.point.new(new_point_x, new_point_y)
+              last_point_obj.vertex = point
               last_point_obj.delta = last_point_obj.vertex - player
               last_point_obj.player_distance = last_point_obj.vertex:distanceToPoint(player)
               last_point_obj.camera_angle = (camera.fov_div)
