@@ -10,7 +10,7 @@ local deg <const> = math.deg
 local rad <const> = math.rad
 
 -- set up camera
-local camera <const> = {fov = 70, fov_div = 35, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
+local camera <const> = {fov = 90, fov_div = 45, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
 
 -- performance monitoring (to work out what's using CPU time)
 local perf_monitor <const> = table.create(0, 11)
@@ -76,11 +76,11 @@ local map_sprite, player_sprite = nil, nil
 local sprite_size = 16
 local wall_sprites = {}
 local player_start = {x = 24, y = 24, direction = 90}
-local rays = {}
+--local rays = {}
 local draw_these = {}
 local view = gfx.image.new(400, 240, gfx.kColorBlack)
 local background_image = gfx.image.new('Images/background_gradient')
-local images = {}
+--local images = {}
 local wall_tiles_imagetable = gfx.imagetable.new("Images/wall_tiles-table-16-16")
 
 function isWall(tile_x, tile_y)
@@ -167,6 +167,7 @@ function makeWallImages ()
 end
 
 function setUpCamera()
+	print("fov: " .. camera.fov)
   
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
   local required_angle = math.deg(math.atan(sprite_size/camera.view_distance))
@@ -175,11 +176,11 @@ function setUpCamera()
   camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.direction = player_sprite.direction
   camera.ray_lines = table.create(camera.rays, 0)
-  print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 10)/ 10 .. " degrees")
+  print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 100)/100 .. " degrees")
   for i = 0, camera.rays do
 	local ray_direction = (player_sprite.direction - camera.fov_div) + (camera.ray_angles * i)
-	local ray_end_x = player_sprite.x + camera.view_distance * sin(rad(ray_direction))
-	local ray_end_y = player_sprite.y - camera.view_distance * cos(rad(ray_direction))
+	local ray_end_x = player_sprite.x + camera.view_distance * sin_rad(ray_direction))
+	local ray_end_y = player_sprite.y - camera.view_distance * cos_rad(ray_direction))
 	camera.ray_lines[i+1] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
   end
   printTable(camera.ray_lines)
