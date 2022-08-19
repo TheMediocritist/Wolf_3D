@@ -590,8 +590,8 @@ function makePlayer(x_pos, y_pos, direction)
     function s:update()
 
       local movex, movey = 0, 0
-        if playdate.buttonIsPressed('right') then 
-            if playdate.buttonIsPressed('b') then
+        if playdate.buttonIsPressed(playdate.kButtonRight) then 
+            if playdate.buttonIsPressed(playdate.kButtonB) then
                 -- strafe right
                 movex = s.cos_dir
                 movey = -s.sin_dir
@@ -604,8 +604,8 @@ function makePlayer(x_pos, y_pos, direction)
                 s.moved = true
             end
         end
-        if playdate.buttonIsPressed('left') then 
-            if playdate.buttonIsPressed('b') then
+        if playdate.buttonIsPressed(playdate.kButtonLeft) then 
+            if playdate.buttonIsPressed(playdate.kButtonB) then
                 -- strafe left
                 movex = -s.cos_dir
                 movey = s.sin_dir
@@ -618,12 +618,12 @@ function makePlayer(x_pos, y_pos, direction)
                 s.moved = true
             end 
         end
-        if playdate.buttonIsPressed('up') then
+        if playdate.buttonIsPressed(playdate.kButtonUp) then
             movex = s.sin_dir
             movey = s.cos_dir
             s.moved = true
         end
-        if playdate.buttonIsPressed('down') then
+        if playdate.buttonIsPressed(playdate.kButtonDown) then
             movex = -s.sin_dir
             movey = -s.cos_dir
             s.moved = true
