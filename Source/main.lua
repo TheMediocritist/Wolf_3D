@@ -261,7 +261,7 @@ function updateView()
     local p = {} 
     
     for i = 1, #points do
-      p[i] = {}
+      p[i] = table.create(0, 4)
       p[i].vertex = points[i]
     end
     
