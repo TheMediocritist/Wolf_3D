@@ -1,5 +1,8 @@
 import 'CoreLibs/sprites'
 import 'CoreLibs/graphics'
+import 'CoreLibs/animation'
+import 'CoreLibs/timer'
+
 local gfx <const> = playdate.graphics
 local geom <const> = playdate.geometry
 local sin <const> = math.sin
@@ -233,6 +236,7 @@ function playdate.update()
     if initialised == false then initialise() end
     
     updateDeltaTime()
+    playdate.timer.updateTimers()
     updateView()
     gfx.sprite.redrawBackground()
     gfx.sprite.update()
@@ -394,8 +398,14 @@ function updateView()
   else
     for i = num_screen_polys, 1, -1 do
       gfx.setColor(gfx.kColorWhite)
-      if playdate.buttonIsPressed(playdate.kButtonA) then
-        gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
+      if player_sprite.hands.state == "shooting" then
+        if player_sprite.hands.animation.current.frame == 1 then
+          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
+        elseif player_sprite.hands.animation.current.frame == 2 then
+          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.7),gfx.image.kDitherTypeBayer4x4)
+        else
+          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.8),gfx.image.kDitherTypeBayer4x4)
+        end
       else
         gfx.setDitherPattern(0.1+(screen_polys[i].distance/camera.view_distance/1.2),gfx.image.kDitherTypeBayer4x4)
       end
@@ -577,6 +587,33 @@ function makeWallSprites(map, columns, rows)
 end
 
 function makePlayer(x_pos, y_pos, direction)
+    local hands = gfx.sprite.new()
+    hands.image = gfx.image.new(176, 160, gfx.kColorClear)
+    hands.state = "idle"
+    hands.imagetable = gfx.imagetable.new('Images/hands')
+    hands.animation = { shoot = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1, 2, 3}), false),
+                        reload = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {4, 5, 6, 7, 8}), false),
+                        idle = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1}), true)}
+    hands.animation.current = hands.animation.idle
+    function hands:update()
+      if hands.state == "idle" then
+        if playdate.buttonIsPressed(playdate.kButtonA) then
+          hands.state = "shooting"
+          hands.animation.current = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
+        end
+      elseif hands.animation.current.frame == 3 then
+        hands.state = "idle"
+        hands.animation.current = hands.animation.idle
+      end
+      gfx.lockFocus(hands.image)
+      gfx.setColor(gfx.kColorClear)
+      gfx.fillRect(0, 0, 176, 160)
+      hands.animation.current:draw(0, 0)
+      gfx.unlockFocus()
+      hands:setImage(hands.image)
+    end
+    hands:add()
+    hands:moveTo(240, 160)
     
     local image = gfx.image.new(6, 6)
     gfx.lockFocus(image)
@@ -586,6 +623,7 @@ function makePlayer(x_pos, y_pos, direction)
     gfx.unlockFocus()
     
     local s = gfx.sprite.new(image)
+    s.hands = hands
     s.moved = false
     s.direction = direction
     s:setCollideRect(0, 0, 6, 6)
@@ -681,3 +719,10 @@ function makePlayer(x_pos, y_pos, direction)
     
 end
 
+function animation_grid(imagetable, sequence)
+  local temp_imagetable = gfx.imagetable.new(#sequence)
+  for i, v in ipairs(sequence) do
+    temp_imagetable:setImage(i, imagetable:getImage(v))
+  end
+  return temp_imagetable
+end
