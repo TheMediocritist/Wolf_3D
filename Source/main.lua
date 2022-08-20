@@ -25,6 +25,7 @@ local sprite_update <const> = gfx.sprite.update
 local updateTimers <const> = playdate.timer.updateTimers
 local drawFPS <const> = playdate.drawFPS
 local kDitherTypeBayer4x4 <const> = gfx.image.kDitherTypeBayer4x4
+local querySpritesAlongLine <const> = gfx.sprite.querySpritesAlongLine
 
 -- hand state
 local hand_shooting <const> = "shooting"
@@ -177,8 +178,8 @@ end
 
 function makeWallImages ()
   
-  images.walls_noview = {}
-  images.walls_inview = {}
+  images.walls_noview = table.create(0, 5)
+  images.walls_inview = table.create(0, 5)
   images.walls_noview.three_n = wall_tiles_imagetable:getImage(12)
   images.walls_noview.two_ne = wall_tiles_imagetable:getImage(8)
   images.walls_noview.two_ns = wall_tiles_imagetable:getImage(12)
@@ -724,7 +725,7 @@ function makePlayer(x_pos, y_pos, direction)
         -- trace rays
           for i = 1, camera.rays do
               local camera_line = camera.ray_lines[i]
-              local ray_hits = gfx.sprite.querySpritesAlongLine(camera_line)
+              local ray_hits = querySpritesAlongLine(camera_line)
               for i = 1, min(#ray_hits, 3) do
                   ray_hits[i].inview = true
               end
