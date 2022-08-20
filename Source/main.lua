@@ -394,7 +394,11 @@ function updateView()
   else
     for i = num_screen_polys, 1, -1 do
       gfx.setColor(gfx.kColorWhite)
-      gfx.setDitherPattern(0.1+(screen_polys[i].distance/80),gfx.image.kDitherTypeBayer4x4)
+      if playdate.buttonIsPressed(playdate.kButtonA) then
+        gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
+      else
+        gfx.setDitherPattern(0.1+(screen_polys[i].distance/camera.view_distance/1.2),gfx.image.kDitherTypeBayer4x4)
+      end
       gfx.fillPolygon(screen_polys[i].polygon)
     end
   gfx.setColor(gfx.kColorBlack)
