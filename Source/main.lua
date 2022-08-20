@@ -19,6 +19,11 @@ local min <const> = math.min
 local max <const> = math.max
 local pow <const> = math.pow
 local fast_intersection <const> = geom.lineSegment.fast_intersection
+local distanceToPoint <const> = geom.distanceToPoint
+local sprite_redrawBackground <const> = gfx.sprite.redrawBackground
+local sprite_update <const> = gfx.sprite.update
+local updateTimers <const> = playdate.timer.updateTimers
+local drawFPS <const> = playdate.drawFPS
 
 -- hand state
 local hand_shooting <const> = "shooting"
@@ -94,14 +99,14 @@ local working_map_sprites = {}
 local initialised = false
 local map_sprite, player_sprite = nil, nil
 local sprite_size <const> = 16
-local wall_sprites = table.create(31, 0)
-local player_start = {x = 24, y = 24, direction = 90}
-local player_speed = 40
+local wall_sprites <const> = table.create(31, 0)
+local player_start <const> = {x = 24, y = 24, direction = 90}
+local player_speed <const> = 40
 local draw_these = table.create(9, 0)
-local view = gfx.image.new(400, 240, gfx.kColorBlack)
-local background_image = gfx.image.new('Images/background_gradient')
-local images = table.create(0, 2)
-local wall_tiles_imagetable = gfx.imagetable.new("Images/wall_tiles-table-16-16")
+local view <const> = gfx.image.new(400, 240, gfx.kColorBlack)
+local background_image <const> = gfx.image.new('Images/background_gradient')
+local images <const> = table.create(0, 2)
+local wall_tiles_imagetable <const> = gfx.imagetable.new("Images/wall_tiles-table-16-16")
 
 local function isWall(tile_x, tile_y)
   -- returns true if working map has a wall at tile_x, tile_y
@@ -232,10 +237,10 @@ function playdate.update()
     if initialised == false then initialise() end
     
     updateDeltaTime()
-    playdate.timer.updateTimers()
+    updateTimers()
     updateView()
-    gfx.sprite.redrawBackground()
-    gfx.sprite.update()
+    sprite_redrawBackground()
+    sprite_update()
     
     -- draw camera rays on mini-map
     -- draw all rays: for i = 1, camera.rays do
@@ -249,7 +254,7 @@ function playdate.update()
       gfx.drawLine(camera.ray_lines[i])
     end
 
-    playdate.drawFPS(381, 4)
+    drawFPS(381, 4)
 end
 
 function updateView()
@@ -299,7 +304,9 @@ function updateView()
         -- calculate distance between player and vertex as well as 'forward' distance from camera
         for i = 1, last_p do
           local p = p[i]
-          p.player_distance = p.vertex:distanceToPoint(player)
+          local x1, y1 = p.vertex:unpack()
+          local x2, y2 = player:unpack()
+          p.player_distance = distanceToPoint(x1, y1, x2, y2)
           p.camera_distance = p.player_distance * cos(rad(p.camera_angle))
         end
       
@@ -308,13 +315,13 @@ function updateView()
         local point = p[1]
         local x1, y1 = p[2].vertex:unpack()
         local x2, y2 = point.vertex:unpack()
-        local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, camera.ray_lines[1]:unpack())
         
         if intersects then
+          local x2, y2 = player:unpack()          
           point.vertex = geom.point.new(new_point_x, new_point_y)
           point.delta = point.vertex - player
-          point.player_distance = point.vertex:distanceToPoint(player)
+          point.player_distance = distanceToPoint(new_point_x, new_point_y, x2, y2)
           point.camera_angle = camera_fov_half_neg
           point.camera_distance = point.player_distance * cos(rad(point.camera_angle))
         end
@@ -323,13 +330,13 @@ function updateView()
         local point = p[1]
         local x1, y1 = p[2].vertex:unpack()
         local x2, y2 = point.vertex:unpack()
-        local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, camera.ray_lines[#camera.ray_lines]:unpack())
     
         if intersects then
+          local x2, y2 = player:unpack()          
           point.vertex = geom.point.new(new_point_x, new_point_y)
           point.delta = point.vertex - player
-          point.player_distance = point.vertex:distanceToPoint(player)
+          point.player_distance = distanceToPoint(new_point_x, new_point_y, x2, y2)
           point.camera_angle = (camera_fov_half)
           point.camera_distance = point.player_distance * cos(rad(point.camera_angle))
         end
@@ -341,13 +348,13 @@ function updateView()
         local last_p = p[last_point]
         local x1, y1 = last_p.vertex:unpack()
         local x2, y2 = p[last_point-1].vertex:unpack()
-        local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, camera.ray_lines[1]:unpack())
         
         if intersects then
+          local x2, y2 = player:unpack()          
           last_p.vertex = geom.point.new(new_point_x, new_point_y)
           last_p.delta = last_p.vertex - player
-          last_p.player_distance = last_p.vertex:distanceToPoint(player)
+          last_p.player_distance = distanceToPoint(new_point_x, new_point_y, x2, y2)
           last_p.camera_angle = -(camera_fov_half)
           last_p.camera_distance = last_p.player_distance * cos(rad(last_p.camera_angle))
         end
@@ -355,13 +362,13 @@ function updateView()
         local last_p = p[last_point]
         local x1, y1 = last_p.vertex:unpack()
         local x2, y2 = p[last_point-1].vertex:unpack()
-        local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, camera.ray_lines[#camera.ray_lines]:unpack())
         
         if intersects then
+          local x2, y2 = player:unpack()          
           last_p.vertex = geom.point.new(new_point_x, new_point_y)
           last_p.delta = last_p.vertex - player
-          last_p.player_distance = last_p.vertex:distanceToPoint(player)
+          last_p.player_distance = distanceToPoint(new_point_x, new_point_y, x2, y2)
           last_p.camera_angle = (camera_fov_half)
           last_p.camera_distance = last_p.player_distance * cos(rad(last_p.camera_angle))
         end
