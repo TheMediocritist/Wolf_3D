@@ -20,6 +20,10 @@ local max <const> = math.max
 local pow <const> = math.pow
 local fast_intersection <const> = geom.lineSegment.fast_intersection
 
+-- hand state
+local hand_shooting <const> = "shooting"
+local hand_idle <const> = "idle"
+
 -- set up camera
 local camera <const> = {fov = 70, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
 local camera_width_half <const> = camera.width / 2
@@ -89,23 +93,15 @@ local working_map_sprites = {}
 
 local initialised = false
 local map_sprite, player_sprite = nil, nil
-local sprite_size = 16
+local sprite_size <const> = 16
 local wall_sprites = table.create(31, 0)
 local player_start = {x = 24, y = 24, direction = 90}
 local player_speed = 40
 local draw_these = table.create(9, 0)
 local view = gfx.image.new(400, 240, gfx.kColorBlack)
 local background_image = gfx.image.new('Images/background_gradient')
-local images = {}
+local images = table.create(0, 2)
 local wall_tiles_imagetable = gfx.imagetable.new("Images/wall_tiles-table-16-16")
-
-local function cos_rad(x)
-  return cos(rad(x))
-end
-
-local function sin_rad(x)
-  return sin(rad(x))
-end
 
 local function isWall(tile_x, tile_y)
   -- returns true if working map has a wall at tile_x, tile_y
@@ -203,8 +199,8 @@ function setUpCamera()
   print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. floor(camera.ray_angles * 100)/100 .. " degrees")
   for i = 1, camera.rays do
     local ray_direction = (player_sprite.direction - camera_fov_half) + (camera.ray_angles * (i - 1))
-    local ray_end_x = player_sprite.x + camera.view_distance * sin_rad(ray_direction)
-    local ray_end_y = player_sprite.y - camera.view_distance * cos_rad(ray_direction)
+    local ray_end_x = player_sprite.x + camera.view_distance * sin(rad(ray_direction))
+    local ray_end_y = player_sprite.y - camera.view_distance * cos(rad(ray_direction))
     camera.ray_lines[i] = geom.lineSegment.new(player_sprite.x, player_sprite.y, ray_end_x, ray_end_y)
   end
 end
@@ -261,13 +257,13 @@ function updateView()
   gfx.pushContext(view)
   background_image:draw(0, 0)
   
-  local screen_polys = {}
+  local screen_polys = table.create(7, 0)
   local player = geom.point.new(player_sprite.x, player_sprite.y)
   local num_draw_these = #draw_these
   
   for i = 1, num_draw_these do
     local points = getVertices(draw_these[i])
-    local p = {} 
+    local p = table.create(0, 4) 
     
     for i = 1, #points do
       p[i] = table.create(0, 4)
@@ -279,11 +275,12 @@ function updateView()
         
         -- calculate angle to vertex in camera coordinates
         for i = 1, last_p do
-          p[i].delta = player - p[i].vertex
-          local deltax, deltay = p[i].delta:unpack()
-          p[i].player_angle = deg(atan2(deltax, -deltay)) +180
-          p[i].camera_angle = (p[i].player_angle - player_sprite.direction) % 360
-          if p[i].camera_angle > 180 then p[i].camera_angle -= 360 end
+          local point = p[i]
+          point.delta = player - point.vertex
+          local deltax, deltay = point.delta:unpack()
+          point.player_angle = deg(atan2(deltax, -deltay)) +180
+          point.camera_angle = (point.player_angle - player_sprite.direction) % 360
+          if point.camera_angle > 180 then point.camera_angle -= 360 end
         end
         
         -- remove end point if entire wall is out of view
@@ -301,58 +298,72 @@ function updateView()
         
         -- calculate distance between player and vertex as well as 'forward' distance from camera
         for i = 1, last_p do
-          p[i].player_distance = p[i].vertex:distanceToPoint(player)
-          p[i].camera_distance = p[i].player_distance * cos(rad(p[i].camera_angle))
+          local p = p[i]
+          p.player_distance = p.vertex:distanceToPoint(player)
+          p.camera_distance = p.player_distance * cos(rad(p.camera_angle))
         end
       
       -- if wall extends behind camera, shift the vertex to clip the wall
       if p[1].camera_angle < camera_fov_half_neg and p[1].camera_distance < sprite_size then 
+        local point = p[1]
+        local x1, y1 = p[2].vertex:unpack()
+        local x2, y2 = point.vertex:unpack()
         local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-        local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
         
         if intersects then
-          p[1].vertex = geom.point.new(new_point_x, new_point_y)
-          p[1].delta = p[1].vertex - player
-          p[1].player_distance = p[1].vertex:distanceToPoint(player)
-          p[1].camera_angle = camera_fov_half_neg
-          p[1].camera_distance = p[1].player_distance * cos(rad(p[1].camera_angle))
+          point.vertex = geom.point.new(new_point_x, new_point_y)
+          point.delta = point.vertex - player
+          point.player_distance = point.vertex:distanceToPoint(player)
+          point.camera_angle = camera_fov_half_neg
+          point.camera_distance = point.player_distance * cos(rad(point.camera_angle))
         end
         
       elseif p[1].camera_angle > ((camera_fov_half)) and p[1].camera_distance < sprite_size then
+        local point = p[1]
+        local x1, y1 = p[2].vertex:unpack()
+        local x2, y2 = point.vertex:unpack()
         local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-        local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
     
         if intersects then
-          p[1].vertex = geom.point.new(new_point_x, new_point_y)
-          p[1].delta = p[1].vertex - player
-          p[1].player_distance = p[1].vertex:distanceToPoint(player)
-          p[1].camera_angle = (camera_fov_half)
-          p[1].camera_distance = p[1].player_distance * cos(rad(p[1].camera_angle))
+          point.vertex = geom.point.new(new_point_x, new_point_y)
+          point.delta = point.vertex - player
+          point.player_distance = point.vertex:distanceToPoint(player)
+          point.camera_angle = (camera_fov_half)
+          point.camera_distance = point.player_distance * cos(rad(point.camera_angle))
         end
       end
       
       local last_point = #p
       
       if p[last_point].camera_angle < camera_fov_half_neg and p[last_point].camera_distance < sprite_size then 
+        local last_p = p[last_point]
+        local x1, y1 = last_p.vertex:unpack()
+        local x2, y2 = p[last_point-1].vertex:unpack()
         local x3, y3, x4, y4 = camera.ray_lines[1]:unpack()
-        local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
         
         if intersects then
-          p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
-          p[last_point].delta = p[last_point].vertex - player
-          p[last_point].player_distance = p[last_point].vertex:distanceToPoint(player)
-          p[last_point].camera_angle = -(camera_fov_half)
-          p[last_point].camera_distance = p[last_point].player_distance * cos(rad(p[last_point].camera_angle))
+          last_p.vertex = geom.point.new(new_point_x, new_point_y)
+          last_p.delta = last_p.vertex - player
+          last_p.player_distance = last_p.vertex:distanceToPoint(player)
+          last_p.camera_angle = -(camera_fov_half)
+          last_p.camera_distance = last_p.player_distance * cos(rad(last_p.camera_angle))
         end
       elseif p[last_point].camera_angle > ((camera_fov_half)) and p[last_point].camera_distance < sprite_size then
-       local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
-       local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
+        local last_p = p[last_point]
+        local x1, y1 = last_p.vertex:unpack()
+        local x2, y2 = p[last_point-1].vertex:unpack()
+        local x3, y3, x4, y4 = camera.ray_lines[#camera.ray_lines]:unpack()
+        local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+        
         if intersects then
-          p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
-          p[last_point].delta = p[last_point].vertex - player
-          p[last_point].player_distance = p[last_point].vertex:distanceToPoint(player)
-          p[last_point].camera_angle = (camera_fov_half)
-          p[last_point].camera_distance = p[last_point].player_distance * cos(rad(p[last_point].camera_angle))
+          last_p.vertex = geom.point.new(new_point_x, new_point_y)
+          last_p.delta = last_p.vertex - player
+          last_p.player_distance = last_p.vertex:distanceToPoint(player)
+          last_p.camera_angle = (camera_fov_half)
+          last_p.camera_distance = last_p.player_distance * cos(rad(last_p.camera_angle))
         end
       end
       
@@ -364,24 +375,27 @@ function updateView()
       
       -- turn points into polygons
       for i = 1, last_point - 1 do
-        screen_polys[#screen_polys+1] = {}
-        screen_polys[#screen_polys].distance = (p[i].camera_distance + p[i+1].camera_distance)/2
-        screen_polys[#screen_polys].left_angle = min(p[i].camera_angle, p[i+1].camera_angle)
-        screen_polys[#screen_polys].right_angle = max(p[i].camera_angle, p[i+1].camera_angle)
+        screen_polys[#screen_polys+1] = table.create(0, 6)
+        local poly = screen_polys[#screen_polys]
+        local next_p = p[i+1]
+        local p = p[i]
+        poly.distance = (p.camera_distance + next_p.camera_distance)/2
+        poly.left_angle = min(p.camera_angle, next_p.camera_angle)
+        poly.right_angle = max(p.camera_angle, next_p.camera_angle)
   
-        screen_polys[#screen_polys].polygon = geom.polygon.new(
-                            200 + p[i].offset_x, 120 + p[i].offset_y*4,
-                            200 + p[i+1].offset_x, 120 + p[i+1].offset_y*4,
-                            200 + p[i+1].offset_x, 120 - p[i+1].offset_y*4,
-                            200 + p[i].offset_x, 120 - p[i].offset_y*4,
-                            200 + p[i].offset_x, 120 + p[i].offset_y*4)
+        poly.polygon = geom.polygon.new(
+                            200 + p.offset_x, 120 + p.offset_y*4,
+                            200 + next_p.offset_x, 120 + next_p.offset_y*4,
+                            200 + next_p.offset_x, 120 - next_p.offset_y*4,
+                            200 + p.offset_x, 120 - p.offset_y*4,
+                            200 + p.offset_x, 120 + p.offset_y*4)
                             
                             
         if draw_debug then
           -- draw wall to top-down view
           gfx.setColor(gfx.kColorWhite)
-          gfx.drawLine(340 + p[i].camera_distance * tan(rad(p[i].camera_angle)), 68 - p[i].camera_distance, 
-                  340 + p[i+1].camera_distance * tan(rad(p[i+1].camera_angle)), 68 - p[i+1].camera_distance)
+          gfx.drawLine(340 + p.camera_distance * tan(rad(p.camera_angle)), 68 - p.camera_distance, 
+                  340 + next_p.camera_distance * tan(rad(next_p.camera_angle)), 68 - next_p.camera_distance)
         end
       end
     end
@@ -389,7 +403,6 @@ function updateView()
     
   -- Draw polygons
   local num_screen_polys = #screen_polys
-  
   if draw_shaded == false then
     gfx.setColor(gfx.kColorWhite)
     for i = num_screen_polys, 1, -1 do
@@ -397,19 +410,20 @@ function updateView()
     end
   else
     for i = num_screen_polys, 1, -1 do
+      local poly = screen_polys[i]
       gfx.setColor(gfx.kColorWhite)
-      if player_sprite.hands.state == "shooting" then
+      if player_sprite.hands.state == hand_shooting then
         if player_sprite.hands.animation.current.frame == 1 then
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
+          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
         elseif player_sprite.hands.animation.current.frame == 2 then
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.7),gfx.image.kDitherTypeBayer4x4)
+          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.7),gfx.image.kDitherTypeBayer4x4)
         else
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.8),gfx.image.kDitherTypeBayer4x4)
+          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.8),gfx.image.kDitherTypeBayer4x4)
         end
       else
-        gfx.setDitherPattern(0.1+(screen_polys[i].distance/camera.view_distance/1.2),gfx.image.kDitherTypeBayer4x4)
+        gfx.setDitherPattern(0.1+(poly.distance/camera.view_distance/1.2),gfx.image.kDitherTypeBayer4x4)
       end
-      gfx.fillPolygon(screen_polys[i].polygon)
+      gfx.fillPolygon(poly.polygon)
     end
   gfx.setColor(gfx.kColorBlack)
   end
@@ -449,7 +463,7 @@ function makeWallSprites(map, columns, rows)
                               ne = geom.point.new(x * 16, (y-1) * 16),
                               se = geom.point.new(x * 16, y * 16),
                               sw = geom.point.new((x-1) * 16, y * 16)}
-                s.view_vertices = {}
+                s.view_vertices = table.create(0, 6)
                 
                 local num_walls = 4
                 
@@ -589,20 +603,20 @@ end
 function makePlayer(x_pos, y_pos, direction)
     local hands = gfx.sprite.new()
     hands.image = gfx.image.new(176, 160, gfx.kColorClear)
-    hands.state = "idle"
+    hands.state = hand_idle
     hands.imagetable = gfx.imagetable.new('Images/hands')
     hands.animation = { shoot = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1, 2, 3}), false),
                         reload = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {4, 5, 6, 7, 8}), false),
                         idle = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1}), true)}
     hands.animation.current = hands.animation.idle
     function hands:update()
-      if hands.state == "idle" then
+      if hands.state == hand_idle then
         if playdate.buttonIsPressed(playdate.kButtonA) then
-          hands.state = "shooting"
+          hands.state = hand_shooting
           hands.animation.current = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
         end
       elseif hands.animation.current.frame == 3 then
-        hands.state = "idle"
+        hands.state = hand_idle
         hands.animation.current = hands.animation.idle
       end
       gfx.lockFocus(hands.image)
@@ -629,11 +643,11 @@ function makePlayer(x_pos, y_pos, direction)
     s:setCollideRect(0, 0, 6, 6)
     s:setCenter(0.5, 0.5)
     s.collisionResponse = gfx.sprite.kCollisionTypeSlide
-    s.rotate_transform = playdate.geometry.affineTransform.new()
-    s.sin_dir = sin_rad(s.direction)
-    s.cos_dir = cos_rad(s.direction)
-    s.view_left = geom.lineSegment.new(x_pos, y_pos, x_pos + sin_rad(s.direction - camera_fov_half), y_pos - cos_rad(s.direction - camera_fov_half))
-    s.view_right = geom.lineSegment.new(x_pos, y_pos, x_pos + sin_rad(s.direction + camera_fov_half), y_pos - cos_rad(s.direction + camera_fov_half))
+    s.rotate_transform = geom.affineTransform.new()
+    s.sin_dir = sin(rad(s.direction))
+    s.cos_dir = cos(rad(s.direction))
+    s.view_left = geom.lineSegment.new(x_pos, y_pos, x_pos + sin(rad(s.direction - camera_fov_half)), y_pos - cos(rad(s.direction - camera_fov_half)))
+    s.view_right = geom.lineSegment.new(x_pos, y_pos, x_pos + sin(rad(s.direction + camera_fov_half)), y_pos - cos(rad(s.direction + camera_fov_half)))
     function s:update()
 
       local movex, movey = 0, 0
@@ -687,8 +701,8 @@ function makePlayer(x_pos, y_pos, direction)
           s.view_left = camera.ray_lines[1]
           s.view_right = camera.ray_lines[#camera.ray_lines]
           
-          s.sin_dir = sin_rad(s.direction)
-          s.cos_dir = cos_rad(s.direction)
+          s.sin_dir = sin(rad(s.direction))
+          s.cos_dir = cos(rad(s.direction))
           
           s.moved = false
           s.rotate_transform:reset()
@@ -701,14 +715,16 @@ function makePlayer(x_pos, y_pos, direction)
         draw_these = table.create(9, 0)
         -- trace rays
           for i = 1, camera.rays do
-              ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
+              local camera_line = camera.ray_lines[i]
+              local ray_hits = gfx.sprite.querySpritesAlongLine(camera_line)
               for i = 1, min(#ray_hits, 3) do
                   ray_hits[i].inview = true
               end
           end
           for i = 1, #wall_sprites do
-              if wall_sprites[i].inview then
-                  draw_these[#draw_these + 1] = wall_sprites[i]
+              local wall_sprite = wall_sprites[i]
+              if wall_sprite.inview then
+                  draw_these[#draw_these + 1] = wall_sprite
               end
           end
     end
