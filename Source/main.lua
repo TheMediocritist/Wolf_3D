@@ -421,9 +421,10 @@ function updateView()
       local poly = screen_polys[i]
       gfx.setColor(gfx.kColorWhite)
       if player_sprite.hands.state == hand_shooting then
-        if player_sprite.hands.animation.current.frame == 1 then
+        local frame = player_sprite.hands.animation.current.frame
+        if frame == 1 then
           gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.5), kDitherTypeBayer4x4)
-        elseif player_sprite.hands.animation.current.frame == 2 then
+        elseif frame == 2 then
           gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.7), kDitherTypeBayer4x4)
         else
           gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.8), kDitherTypeBayer4x4)
