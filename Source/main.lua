@@ -98,6 +98,7 @@ local view = gfx.image.new(400, 240, gfx.kColorBlack)
 local background_image = gfx.image.new('Images/background_gradient')
 local images = {}
 local wall_tiles_imagetable = gfx.imagetable.new("Images/wall_tiles-table-16-16")
+local gun_shot_sfx <const> = playdate.sound.sample.new("SFX/gun-shot")
 
 local function cos_rad(x)
   return cos(rad(x))
@@ -598,6 +599,7 @@ function makePlayer(x_pos, y_pos, direction)
     function hands:update()
       if hands.state == "idle" then
         if playdate.buttonIsPressed(playdate.kButtonA) then
+          gun_shot_sfx:play()
           hands.state = "shooting"
           hands.animation.current = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
         end
