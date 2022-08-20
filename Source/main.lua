@@ -4,6 +4,7 @@ local gfx <const> = playdate.graphics
 local geom <const> = playdate.geometry
 local sin <const> = math.sin
 local cos <const> = math.cos
+local atan <const> = math.atan
 local atan2 <const> = math.atan2
 local tan <const> = math.tan
 local deg <const> = math.deg 
@@ -186,13 +187,13 @@ end
 function setUpCamera()
   
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
-  local required_angle = math.deg(math.atan(sprite_size/camera.view_distance))
-  local camera_rays = math.floor(camera.fov/required_angle)  -- Temp until rays replaced with tree
+  local required_angle = deg(atan(sprite_size/camera.view_distance))
+  local camera_rays = floor(camera.fov/required_angle)  -- Temp until rays replaced with tree
   camera.ray_angles = camera.fov/camera_rays
   camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.direction = player_sprite.direction
   camera.ray_lines = table.create(camera.rays, 0)
-  print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. math.floor(camera.ray_angles * 100)/100 .. " degrees")
+  print("FOV: " .. camera.fov .. ", " .. camera.rays .. " rays at intervals of " .. floor(camera.ray_angles * 100)/100 .. " degrees")
   for i = 1, camera.rays do
     local ray_direction = (player_sprite.direction - camera.fov_div) + (camera.ray_angles * (i - 1))
     local ray_end_x = player_sprite.x + camera.view_distance * sin_rad(ray_direction)
@@ -357,8 +358,8 @@ function updateView()
       for i = 1, last_point - 1 do
         screen_polys[#screen_polys+1] = {}
         screen_polys[#screen_polys].distance = (p[i].camera_distance + p[i+1].camera_distance)/2
-        screen_polys[#screen_polys].left_angle = math.min(p[i].camera_angle, p[i+1].camera_angle)
-        screen_polys[#screen_polys].right_angle = math.max(p[i].camera_angle, p[i+1].camera_angle)
+        screen_polys[#screen_polys].left_angle = min(p[i].camera_angle, p[i+1].camera_angle)
+        screen_polys[#screen_polys].right_angle = max(p[i].camera_angle, p[i+1].camera_angle)
   
         screen_polys[#screen_polys].polygon = geom.polygon.new(
                             200 + p[i].offset_x, 120 + p[i].offset_y*4,
@@ -371,8 +372,8 @@ function updateView()
         if draw_debug then
           -- draw wall to top-down view
           gfx.setColor(gfx.kColorWhite)
-          gfx.drawLine(340 + p[i].camera_distance * math.tan(rad(p[i].camera_angle)), 68 - p[i].camera_distance, 
-                  340 + p[i+1].camera_distance * math.tan(rad(p[i+1].camera_angle)), 68 - p[i+1].camera_distance)
+          gfx.drawLine(340 + p[i].camera_distance * tan(rad(p[i].camera_angle)), 68 - p[i].camera_distance, 
+                  340 + p[i+1].camera_distance * tan(rad(p[i+1].camera_angle)), 68 - p[i+1].camera_distance)
         end
       end
     end
@@ -655,7 +656,7 @@ function makePlayer(x_pos, y_pos, direction)
         -- trace rays
           for i = 1, camera.rays do
               ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
-              for i = 1, math.min(#ray_hits, 3) do
+              for i = 1, min(#ray_hits, 3) do
                   ray_hits[i].inview = true
               end
           end
