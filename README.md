@@ -5,7 +5,8 @@ The goal here was to build an engine to demonstrate that something _like_ Wolfen
 
 **_Improvements/suggestions are very welcome!_** (I'm just learning how to do this).
 
-![Wolf_working_2](https://user-images.githubusercontent.com/79881777/184538742-9b8b7a6c-8394-4648-9e85-815616f580a9.gif)
+![Wolf_muzzleflashtest](https://user-images.githubusercontent.com/79881777/185723938-085be4a4-e163-4799-a279-ec64f6523df2.gif)
+
 
 Scrappy code but the gist of it is:
 * Load a simple map, where 1 = Wall block
