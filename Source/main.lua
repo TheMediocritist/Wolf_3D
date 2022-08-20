@@ -24,6 +24,7 @@ local sprite_redrawBackground <const> = gfx.sprite.redrawBackground
 local sprite_update <const> = gfx.sprite.update
 local updateTimers <const> = playdate.timer.updateTimers
 local drawFPS <const> = playdate.drawFPS
+local kDitherTypeBayer4x4 <const> = gfx.image.kDitherTypeBayer4x4
 
 -- hand state
 local hand_shooting <const> = "shooting"
@@ -230,12 +231,10 @@ local function updateDeltaTime()
   -- updates dt (seconds since last frame)
   local old_last_time = last_time
   last_time = playdate.getCurrentTimeMilliseconds()
-  dt = (last_time - old_last_time)/1000
+  dt = (last_time - old_last_time) * 0.001
 end
 
-function playdate.update()
-    if initialised == false then initialise() end
-    
+function playdate.update()    
     updateDeltaTime()
     updateTimers()
     updateView()
@@ -245,14 +244,14 @@ function playdate.update()
     -- draw camera rays on mini-map
     -- draw all rays: for i = 1, camera.rays do
     -- draw only left and right rays: for i = 1, camera.rays, (camera.rays -1) do
-    for i = 1, camera.rays, (camera.rays - 1) do
-      gfx.setLineWidth(3)
-      gfx.setColor(gfx.kColorWhite)
-      gfx.drawLine(camera.ray_lines[i])
-      gfx.setLineWidth(1)
-      gfx.setColor(gfx.kColorBlack)
-      gfx.drawLine(camera.ray_lines[i])
-    end
+    -- for i = 1, camera.rays, (camera.rays - 1) do
+    --   gfx.setLineWidth(3)
+    --   gfx.setColor(gfx.kColorWhite)
+    --   gfx.drawLine(camera.ray_lines[i])
+    --   gfx.setLineWidth(1)
+    --   gfx.setColor(gfx.kColorBlack)
+    --   gfx.drawLine(camera.ray_lines[i])
+    -- end
 
     drawFPS(381, 4)
 end
@@ -260,7 +259,6 @@ end
 function updateView()
 
   gfx.pushContext(view)
-  background_image:draw(0, 0)
   
   local screen_polys = table.create(7, 0)
   local player = geom.point.new(player_sprite.x, player_sprite.y)
@@ -407,6 +405,8 @@ function updateView()
       end
     end
   end
+  
+  background_image:draw(0, 0)
     
   -- Draw polygons
   local num_screen_polys = #screen_polys
@@ -421,14 +421,14 @@ function updateView()
       gfx.setColor(gfx.kColorWhite)
       if player_sprite.hands.state == hand_shooting then
         if player_sprite.hands.animation.current.frame == 1 then
-          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
+          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.5), kDitherTypeBayer4x4)
         elseif player_sprite.hands.animation.current.frame == 2 then
-          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.7),gfx.image.kDitherTypeBayer4x4)
+          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.7), kDitherTypeBayer4x4)
         else
-          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.8),gfx.image.kDitherTypeBayer4x4)
+          gfx.setDitherPattern(-0.6 + (poly.distance/camera.view_distance*1.8), kDitherTypeBayer4x4)
         end
       else
-        gfx.setDitherPattern(0.1+(poly.distance/camera.view_distance/1.2),gfx.image.kDitherTypeBayer4x4)
+        gfx.setDitherPattern(0.1+(poly.distance/camera.view_distance/1.2), kDitherTypeBayer4x4)
       end
       gfx.fillPolygon(poly.polygon)
     end
@@ -444,6 +444,7 @@ function updateView()
   gfx.setColor(gfx.kColorBlack)
   gfx.popContext()
   
+
 end
 
 function makeWallSprites(map, columns, rows)
@@ -749,3 +750,5 @@ function animation_grid(imagetable, sequence)
   end
   return temp_imagetable
 end
+
+initialise()
