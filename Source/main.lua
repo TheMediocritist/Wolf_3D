@@ -217,7 +217,7 @@ local function getVertices(wall_sprite)
   end
 end
 
-function updateDeltaTime()
+local function updateDeltaTime()
   -- updates dt (seconds since last frame)
   local old_last_time = last_time
   last_time = playdate.getCurrentTimeMilliseconds()
