@@ -386,7 +386,7 @@ function updateView()
         local poly = screen_polys[#screen_polys]
         local next_p = p[i+1]
         local p = p[i]
-        poly.distance = (p.camera_distance + next_p.camera_distance)/2
+        poly.distance = (p.camera_distance + next_p.camera_distance) * 0.5
         poly.left_angle = min(p.camera_angle, next_p.camera_angle)
         poly.right_angle = max(p.camera_angle, next_p.camera_angle)
   
