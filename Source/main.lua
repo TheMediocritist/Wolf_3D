@@ -36,7 +36,7 @@ local hand_shooting <const> = 0
 local hand_idle <const> = 1
 
 -- set up camera
-local camera <const> = {fov = 70, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
+local camera <const> = {fov = 80, view_distance = 58, width = 400, width_div = 200, height = 500, height_div = 250}
 local camera_width_half <const> = camera.width / 2
 local camera_height_half <const> = camera.height / 2
 local camera_fov_half <const> = camera.fov / 2
