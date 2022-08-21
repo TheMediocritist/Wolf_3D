@@ -43,13 +43,13 @@ local dt, last_time = 0, 0
 local menu = playdate.getSystemMenu()
 local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, false, true
 
-menu:addCheckmarkMenuItem("Shading", true, function(value)
+menu:addCheckmarkMenuItem("Shading", draw_shaded, function(value)
     draw_shaded = value
 end)
-menu:addCheckmarkMenuItem("debug map", false, function(value)
+menu:addCheckmarkMenuItem("debug map", draw_debug, function(value)
   draw_debug = value
 end)
-menu:addCheckmarkMenuItem("mini map", true, function(value)
+menu:addCheckmarkMenuItem("mini map", draw_minimap, function(value)
   draw_minimap = value
   draw_minimap_switched = true
 end)
