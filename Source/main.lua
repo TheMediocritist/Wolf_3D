@@ -314,7 +314,7 @@ function updateView()
 
         if ray_line then
           local x3, y3, x4, y4 = ray_line[1]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
           
           if intersects then
             p[1].vertex = geom.point.new(new_point_x, new_point_y)
@@ -329,7 +329,7 @@ function updateView()
         
         if ray_line then
           local x3, y3, x4, y4 = ray_line[1]:unpack()
-          local intersects, new_point_x, new_point_y = geom.lineSegment.fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
           
           if intersects then
             p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
