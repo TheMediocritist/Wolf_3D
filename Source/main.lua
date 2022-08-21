@@ -166,17 +166,15 @@ function makeWorkingMap(columns, rows)
   end
 end
 
-local function drawBackground()
-    view:draw(0, 0)
-end
-
 function initialise()
     --makeWorkingMap(12, 12)
     makeWallImages()
     makeWallSprites(map, 7, 7)
     player_sprite = makePlayer(player_start.x, player_start.y, player_start.direction)
     setUpCamera()    
-    gfx.sprite.setBackgroundDrawingCallback(drawBackground)
+    gfx.sprite.setBackgroundDrawingCallback(function()
+      view:draw(0, 0)
+    end)
 end
 
 function makeWallImages ()
