@@ -23,6 +23,11 @@ local querySpritesAlongLine = gfx.sprite.querySpritesAlongLine
 local updateTimers = playdate.timer.updateTimers
 local redrawBackground = gfx.sprite.redrawBackground
 local update = gfx.sprite.update
+local new_animation_loop = gfx.animation.loop.new
+
+-- hand state constants
+local hand_shooting <const> = 0
+local hand_idle <const> = 1
 
 -- set up camera
 local camera <const> = {fov = 70, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
@@ -398,7 +403,7 @@ function updateView()
   else
     for i = num_screen_polys, 1, -1 do
       gfx.setColor(gfx.kColorWhite)
-      if player_sprite.hands.state == "shooting" then
+      if player_sprite.hands.state == hand_shooting then
         if player_sprite.hands.animation.current.frame == 1 then
           gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
         elseif player_sprite.hands.animation.current.frame == 2 then
@@ -586,24 +591,34 @@ function makeWallSprites(map, columns, rows)
     end
 end
 
+
+local function animation_grid(imagetable, sequence)
+  local temp_imagetable = gfx.imagetable.new(#sequence)
+  for i, v in ipairs(sequence) do
+    temp_imagetable:setImage(i, imagetable:getImage(v))
+  end
+  return temp_imagetable
+end
+
 function makePlayer(x_pos, y_pos, direction)
     local hands = gfx.sprite.new()
     hands.image = gfx.image.new(176, 160, gfx.kColorClear)
-    hands.state = "idle"
+    hands.state = hand_idle
     hands.imagetable = gfx.imagetable.new('Images/hands')
-    hands.animation = { shoot = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1, 2, 3}), false),
-                        reload = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {4, 5, 6, 7, 8}), false),
-                        idle = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1}), true)}
+    hands.animation = { shoot = new_animation_loop(100, animation_grid(hands.imagetable, {1, 2, 3}), false),
+                        reload = new_animation_loop(100, animation_grid(hands.imagetable, {4, 5, 6, 7, 8}), false),
+                        idle = new_animation_loop(100, animation_grid(hands.imagetable, {1}), true),
+                        current = true }
     hands.animation.current = hands.animation.idle
     function hands:update()
-      if hands.state == "idle" then
+      if hands.state == hand_idle then
         if playdate.buttonIsPressed(playdate.kButtonA) then
           gun_shot_sfx:play()
-          hands.state = "shooting"
-          hands.animation.current = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
+          hands.state = hand_shooting
+          hands.animation.current = new_animation_loop(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
         end
       elseif hands.animation.current.frame == 3 then
-        hands.state = "idle"
+        hands.state = hand_idle
         hands.animation.current = hands.animation.idle
       end
       gfx.lockFocus(hands.image)
@@ -718,14 +733,6 @@ function makePlayer(x_pos, y_pos, direction)
     s:moveTo(x_pos, y_pos)
     return s
     
-end
-
-function animation_grid(imagetable, sequence)
-  local temp_imagetable = gfx.imagetable.new(#sequence)
-  for i, v in ipairs(sequence) do
-    temp_imagetable:setImage(i, imagetable:getImage(v))
-  end
-  return temp_imagetable
 end
 
 initialise()
