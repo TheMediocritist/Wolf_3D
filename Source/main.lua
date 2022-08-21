@@ -24,6 +24,12 @@ local updateTimers = playdate.timer.updateTimers
 local redrawBackground = gfx.sprite.redrawBackground
 local update = gfx.sprite.update
 local new_animation_loop = gfx.animation.loop.new
+local kButtonA <const> = playdate.kButtonA
+local kButtonB <const> = playdate.kButtonB
+local kButtonLeft <const> = playdate.kButtonLeft
+local kButtonRight <const> = playdate.kButtonRight
+local kButtonUp <const> = playdate.kButtonUp
+local kButtonDown <const> = playdate.kButtonDown
 
 -- hand state constants
 local hand_shooting <const> = 0
@@ -610,7 +616,7 @@ function makePlayer(x_pos, y_pos, direction)
     hands.animation.current = hands.animation.idle
     function hands:update()
       if hands.state == hand_idle then
-        if playdate.buttonIsPressed(playdate.kButtonA) then
+        if playdate.buttonIsPressed(kButtonA) then
           gun_shot_sfx:play()
           hands.state = hand_shooting
           hands.animation.current = new_animation_loop(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
@@ -651,8 +657,8 @@ function makePlayer(x_pos, y_pos, direction)
     function s:update()
 
       local movex, movey = 0, 0
-        if playdate.buttonIsPressed(playdate.kButtonRight) then 
-            if playdate.buttonIsPressed(playdate.kButtonB) then
+        if playdate.buttonIsPressed(kButtonRight) then 
+            if playdate.buttonIsPressed(kButtonB) then
                 -- strafe right
                 movex = s.cos_dir
                 movey = -s.sin_dir
@@ -665,8 +671,8 @@ function makePlayer(x_pos, y_pos, direction)
                 s.moved = true
             end
         end
-        if playdate.buttonIsPressed(playdate.kButtonLeft) then 
-            if playdate.buttonIsPressed(playdate.kButtonB) then
+        if playdate.buttonIsPressed(kButtonLeft) then 
+            if playdate.buttonIsPressed(kButtonB) then
                 -- strafe left
                 movex = -s.cos_dir
                 movey = s.sin_dir
@@ -679,12 +685,12 @@ function makePlayer(x_pos, y_pos, direction)
                 s.moved = true
             end 
         end
-        if playdate.buttonIsPressed(playdate.kButtonUp) then
+        if playdate.buttonIsPressed(kButtonUp) then
             movex = s.sin_dir
             movey = s.cos_dir
             s.moved = true
         end
-        if playdate.buttonIsPressed(playdate.kButtonDown) then
+        if playdate.buttonIsPressed(kButtonDown) then
             movex = -s.sin_dir
             movey = -s.cos_dir
             s.moved = true
