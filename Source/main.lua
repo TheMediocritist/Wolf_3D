@@ -172,7 +172,7 @@ function makeWorkingMap(columns, rows)
   end
 end
 
-function initialise()
+local function initialise()
     --makeWorkingMap(12, 12)
     makeWallImages()
     makeWallSprites(map, 7, 7)
@@ -275,15 +275,15 @@ function playdate.update()
     playdate.drawFPS(381, 4)
 end
 
+local player = geom.point.new(0, 0)
 function updateView()
 
   gfx.pushContext(view)
-  background_image:draw(0, 0)
   
   local screen_polys = {}
-  local player = geom.point.new(player_sprite.x, player_sprite.y)
-  local num_draw_these = #draw_these
-  
+  local num_draw_these <const> = #draw_these
+  player.x = player_sprite.x
+  player.y = player_sprite.y
   for i = 1, num_draw_these do
     local points = getVertices(draw_these[i])
     local p = table.create(#points, 0) 
@@ -396,6 +396,9 @@ function updateView()
       end
     end
   end
+  
+  background_image:draw(0, 0)
+
     
   -- Draw polygons
   local num_screen_polys = #screen_polys
@@ -599,8 +602,8 @@ end
 
 local function animation_grid(imagetable, sequence)
   local temp_imagetable = gfx.imagetable.new(#sequence)
-  for i, v in ipairs(sequence) do
-    temp_imagetable:setImage(i, imagetable:getImage(v))
+  for i = 1, #sequence do
+    temp_imagetable:setImage(i, imagetable:getImage(sequence[i]))
   end
   return temp_imagetable
 end
