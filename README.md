@@ -11,14 +11,13 @@ The goal here was to build an engine to demonstrate that something _like_ Wolfen
 Scrappy code but the gist of it is:
 * Load a simple map, where 1 = Wall block
 * Create sprites for wall tiles and player in mini-map - **_the pseudo-3D all hangs off this_**
-* Cast 6 rays from player from -45 degrees to +45 degrees from player direction, and use line intersection to identify viewable wall tiles
+* Cast the fewest required number of rays from player to identify viewable wall tiles
 * Compare these wall sprite locations to player location to decide which 1 or 2 walls need to be drawn for each sprite
 * Project the 2 or 3 vertices that describe these walls into the 3D view and make lines between them
 * If vertex is behind player/camera then weird shit happens, intersect the wall with the left or right-most rays from the player and shift the vertex back to the edge of the screen view
 * Make wall polygons by mirroring the projected points/lines vertically
 * Sort wall polygons from nearest to furthest
-* Cull polygons that are obscured by closer polygons 
-* Draw wall polygons from furthest to nearest
+* Draw wall polygons
 
 To do:
 - [X] ~~Wall sorting~~ done but now removed as unnecessary
@@ -26,7 +25,7 @@ To do:
 - [X] Distance shading
 - [X] Implement collisions
 - [X] Fix graphical glitch when vertex is _exactly_ at 45 degrees from player (see GIF for example)
-- [ ] Build sin & cos lookup tables in init (with lerp function? Or is near enough good enough?)
+- [ ] ~~Build sin & cos lookup tables in init (with lerp function? Or is near enough good enough?)~~
 - [X] Test whether predefined pattern draw faster than ditherPattern (Nope)
 - [X] Make the new lineSegment bits for raytrace in init and rotate them instead of generating new in raytrace
 - [ ] Make a branch that replaces points and distances with vector2Ds so we can use vector maths and transformations, e.g. by creating view_left and view_right _once_ then rotating it to update
