@@ -5,7 +5,7 @@ The goal here was to build an engine to demonstrate that something _like_ Wolfen
 
 **_Improvements/suggestions are very welcome!_** (I'm just learning how to do this).
 
-![Wolf_muzzleflashtest](https://user-images.githubusercontent.com/79881777/185723938-085be4a4-e163-4799-a279-ec64f6523df2.gif)
+![Wolf_shooting](https://user-images.githubusercontent.com/79881777/185771654-cc1e56f0-368f-46d5-8161-6e0ebb3366f7.gif)
 
 
 Scrappy code but the gist of it is:
@@ -39,5 +39,5 @@ To do:
 - [ ] Implement doors (think 1 smaller wall tile + 1 sprite door + 1 smaller wall tile)
 - [ ] Add demo enemies
 - [ ] Running & jumping
-- [ ] Shooting
+- [X] Shooting
 - [ ] Get better hobbies
