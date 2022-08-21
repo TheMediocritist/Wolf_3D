@@ -3,25 +3,40 @@ import 'CoreLibs/graphics'
 import 'CoreLibs/animation'
 import 'CoreLibs/timer'
 
-local gfx <const> = playdate.graphics
-local geom <const> = playdate.geometry
-local sin <const> = math.sin
-local cos <const> = math.cos
-local atan <const> = math.atan
-local atan2 <const> = math.atan2
-local tan <const> = math.tan
-local deg <const> = math.deg 
-local rad <const> = math.rad
-local asin <const> = math.asin
-local ceil <const> = math.ceil
-local floor <const> = math.floor
-local min <const> = math.min
-local max <const> = math.max
-local pow <const> = math.pow
-local fast_intersection <const> = geom.lineSegment.fast_intersection
+local gfx = playdate.graphics
+local geom = playdate.geometry
+local sin = math.sin
+local cos = math.cos
+local atan = math.atan
+local atan2 = math.atan2
+local tan = math.tan
+local deg = math.deg 
+local rad = math.rad
+local asin = math.asin
+local ceil = math.ceil
+local floor = math.floor
+local min = math.min
+local max = math.max
+local pow = math.pow
+local fast_intersection = geom.lineSegment.fast_intersection
+local querySpritesAlongLine = gfx.sprite.querySpritesAlongLine
+local updateTimers = playdate.timer.updateTimers
+local redrawBackground = gfx.sprite.redrawBackground
+local update = gfx.sprite.update
+local new_animation_loop = gfx.animation.loop.new
+local kButtonA <const> = playdate.kButtonA
+local kButtonB <const> = playdate.kButtonB
+local kButtonLeft <const> = playdate.kButtonLeft
+local kButtonRight <const> = playdate.kButtonRight
+local kButtonUp <const> = playdate.kButtonUp
+local kButtonDown <const> = playdate.kButtonDown
+
+-- hand state constants
+local hand_shooting <const> = 0
+local hand_idle <const> = 1
 
 -- set up camera
-local camera <const> = {fov = 70, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
+local camera <const> = {fov = 80, view_distance = 58, width = 400, width_div = 200, height = 500, height_div = 250}
 local camera_width_half <const> = camera.width / 2
 local camera_height_half <const> = camera.height / 2
 local camera_fov_half <const> = camera.fov / 2
@@ -32,15 +47,15 @@ local dt, last_time = 0, 0
 
 -- add custom menu items
 local menu = playdate.getSystemMenu()
-local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, true, false
+local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, false, true
 
-menu:addCheckmarkMenuItem("Shading", true, function(value)
+menu:addCheckmarkMenuItem("Shading", draw_shaded, function(value)
     draw_shaded = value
 end)
-menu:addCheckmarkMenuItem("debug map", false, function(value)
+menu:addCheckmarkMenuItem("debug map", draw_debug, function(value)
   draw_debug = value
 end)
-menu:addCheckmarkMenuItem("mini map", true, function(value)
+menu:addCheckmarkMenuItem("mini map", draw_minimap, function(value)
   draw_minimap = value
   draw_minimap_switched = true
 end)
@@ -88,12 +103,11 @@ local map <const> = {
 local working_map_rows, working_map_columns = nil, nil
 local working_map_sprites = {}
 
-local initialised = false
 local map_sprite, player_sprite = nil, nil
-local sprite_size = 16
+local sprite_size <const> = 16
 local wall_sprites = table.create(31, 0)
 local player_start = {x = 24, y = 24, direction = 90}
-local player_speed = 40
+local player_speed <const> = 40
 local draw_these = table.create(9, 0)
 local view = gfx.image.new(400, 240, gfx.kColorBlack)
 local background_image = gfx.image.new('Images/background_gradient')
@@ -158,27 +172,21 @@ function makeWorkingMap(columns, rows)
   end
 end
 
-function initialise()
+local function initialise()
     --makeWorkingMap(12, 12)
     makeWallImages()
     makeWallSprites(map, 7, 7)
     player_sprite = makePlayer(player_start.x, player_start.y, player_start.direction)
-    setUpCamera()
-    initialised = true
-    
-    gfx.sprite.setBackgroundDrawingCallback(
-      function()
-        --gfx.setClipRect(10, 10, 380, 220)
-        view:draw(0, 0)
-        --gfx.clearClipRect()
-      end
-    )
+    setUpCamera()    
+    gfx.sprite.setBackgroundDrawingCallback(function()
+      view:draw(0, 0)
+    end)
 end
 
 function makeWallImages ()
   
-  images.walls_noview = {}
-  images.walls_inview = {}
+  images.walls_noview = table.create(0, 6)
+  images.walls_inview = table.create(0, 6)
   images.walls_noview.three_n = wall_tiles_imagetable:getImage(12)
   images.walls_noview.two_ne = wall_tiles_imagetable:getImage(8)
   images.walls_noview.two_ns = wall_tiles_imagetable:getImage(12)
@@ -231,17 +239,15 @@ local function updateDeltaTime()
   -- updates dt (seconds since last frame)
   local old_last_time = last_time
   last_time = playdate.getCurrentTimeMilliseconds()
-  dt = (last_time - old_last_time)/1000
+  dt = (last_time - old_last_time) * 0.001
 end
 
-function playdate.update()
-    if initialised == false then initialise() end
-    
+function playdate.update()    
     updateDeltaTime()
-    playdate.timer.updateTimers()
+    updateTimers()
     updateView()
-    gfx.sprite.redrawBackground()
-    gfx.sprite.update()
+    redrawBackground()
+    update()
     
     if draw_minimap_switched then
       local do_draw = draw_minimap and true or false
@@ -269,18 +275,18 @@ function playdate.update()
     playdate.drawFPS(381, 4)
 end
 
+local player = geom.point.new(0, 0)
 function updateView()
 
   gfx.pushContext(view)
-  background_image:draw(0, 0)
   
   local screen_polys = {}
-  local player = geom.point.new(player_sprite.x, player_sprite.y)
-  local num_draw_these = #draw_these
-  
+  local num_draw_these <const> = #draw_these
+  player.x = player_sprite.x
+  player.y = player_sprite.y
   for i = 1, num_draw_these do
     local points = getVertices(draw_these[i])
-    local p = {} 
+    local p = table.create(#points, 0) 
     
     for i = 1, #points do
       p[i] = table.create(0, 4)
@@ -294,7 +300,7 @@ function updateView()
         for i = 1, last_p do
           p[i].delta = player - p[i].vertex
           local deltax, deltay = p[i].delta:unpack()
-          p[i].player_angle = deg(atan2(deltax, -deltay)) +180
+          p[i].player_angle = deg(atan2(deltax, -deltay)) + 180
           p[i].camera_angle = (p[i].player_angle - player_sprite.direction) % 360
           if p[i].camera_angle > 180 then p[i].camera_angle -= 360 end
         end
@@ -321,34 +327,35 @@ function updateView()
       local last_point = #p
       
       -- if wall extends behind camera, shift the vertex to clip the wall
-      if p[1].camera_distance < sprite_size or p[last_point].camera_distance < sprite_size then 
-        local ray_line = p[1].camera_angle < camera_fov_half_neg and {camera.ray_lines[1], camera_fov_half_neg} 
+      local p_1 = p[1]
+      if p_1.camera_distance < sprite_size or p[last_point].camera_distance < sprite_size then 
+        local ray_line = p_1.camera_angle < camera_fov_half_neg and {camera.ray_lines[1], camera_fov_half_neg} 
 
         if ray_line then
           local x3, y3, x4, y4 = ray_line[1]:unpack()
-          local intersects, new_point_x, new_point_y = fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = fast_intersection(p[2].vertex.x, p[2].vertex.y, p_1.vertex.x, p_1.vertex.y, x3, y3, x4, y4)
           
           if intersects then
-            p[1].vertex = geom.point.new(new_point_x, new_point_y)
-            p[1].delta = p[1].vertex - player
-            p[1].player_distance = p[1].vertex:distanceToPoint(player)
-            p[1].camera_angle = ray_line[2]
-            p[1].camera_distance = p[1].player_distance * cos(rad(p[1].camera_angle))
+            p_1.vertex = geom.point.new(new_point_x, new_point_y)
+            p_1.delta = p_1.vertex - player
+            p_1.player_distance = p_1.vertex:distanceToPoint(player)
+            p_1.camera_angle = ray_line[2]
+            p_1.camera_distance = p_1.player_distance * cos(rad(p[1].camera_angle))
           end
         end
         
-        local ray_line = p[last_point].camera_angle > camera_fov_half and {camera.ray_lines[camera.rays], camera_fov_half}
-        
+        local prev_point = p[last_point]
+        ray_line = prev_point.camera_angle > camera_fov_half and {camera.ray_lines[camera.rays], camera_fov_half}
         if ray_line then
           local x3, y3, x4, y4 = ray_line[1]:unpack()
-          local intersects, new_point_x, new_point_y = fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = fast_intersection(prev_point.vertex.x, prev_point.vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
           
           if intersects then
-            p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
-            p[last_point].delta = p[last_point].vertex - player
-            p[last_point].player_distance = p[last_point].vertex:distanceToPoint(player)
-            p[last_point].camera_angle = ray_line[2]
-            p[last_point].camera_distance = p[last_point].player_distance * cos(rad(p[last_point].camera_angle))
+            prev_point.vertex = geom.point.new(new_point_x, new_point_y)
+            prev_point.delta = prev_point.vertex - player
+            prev_point.player_distance = prev_point.vertex:distanceToPoint(player)
+            prev_point.camera_angle = ray_line[2]
+            prev_point.camera_distance = prev_point.player_distance * cos(rad(prev_point.camera_angle))
           end
         end
       end
@@ -361,17 +368,23 @@ function updateView()
       
       -- turn points into polygons
       for i = 1, last_point - 1 do
-        screen_polys[#screen_polys+1] = {}
-        screen_polys[#screen_polys].distance = (p[i].camera_distance + p[i+1].camera_distance)/2
-        screen_polys[#screen_polys].left_angle = min(p[i].camera_angle, p[i+1].camera_angle)
-        screen_polys[#screen_polys].right_angle = max(p[i].camera_angle, p[i+1].camera_angle)
+        local point <const> = p[i]
+        local next_point <const> = p[i+1]
+        screen_polys[#screen_polys+1] = table.create(0, 4)
+        local poly = screen_polys[#screen_polys]
+        poly.distance = (point.camera_distance + next_point.camera_distance) * 0.5
+        poly.left_angle = min(point.camera_angle, next_point.camera_angle)
+        poly.right_angle = max(point.camera_angle, next_point.camera_angle)
   
-        screen_polys[#screen_polys].polygon = geom.polygon.new(
-                            200 + p[i].offset_x, 120 + p[i].offset_y*4,
-                            200 + p[i+1].offset_x, 120 + p[i+1].offset_y*4,
-                            200 + p[i+1].offset_x, 120 - p[i+1].offset_y*4,
-                            200 + p[i].offset_x, 120 - p[i].offset_y*4,
-                            200 + p[i].offset_x, 120 + p[i].offset_y*4)
+        local point_offset_x <const> = 200 + point.offset_x
+        local point_offset_y <const> = point.offset_y*4
+        local next_point_offset_y <const> = next_point.offset_y*4
+        poly.polygon = geom.polygon.new(
+                            point_offset_x, 120 + point_offset_y,
+                            200 + next_point.offset_x, 120 + next_point_offset_y,
+                            200 + next_point.offset_x, 120 - next_point_offset_y,
+                            point_offset_x, 120 - point_offset_y,
+                            point_offset_x, 120 + point_offset_y)
                             
                             
         if draw_debug then
@@ -383,6 +396,9 @@ function updateView()
       end
     end
   end
+  
+  background_image:draw(0, 0)
+
     
   -- Draw polygons
   local num_screen_polys = #screen_polys
@@ -395,7 +411,7 @@ function updateView()
   else
     for i = num_screen_polys, 1, -1 do
       gfx.setColor(gfx.kColorWhite)
-      if player_sprite.hands.state == "shooting" then
+      if player_sprite.hands.state == hand_shooting then
         if player_sprite.hands.animation.current.frame == 1 then
           gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
         elseif player_sprite.hands.animation.current.frame == 2 then
@@ -446,7 +462,7 @@ function makeWallSprites(map, columns, rows)
                               ne = geom.point.new(x * 16, (y-1) * 16),
                               se = geom.point.new(x * 16, y * 16),
                               sw = geom.point.new((x-1) * 16, y * 16)}
-                s.view_vertices = {}
+                s.view_vertices = table.create(0, 8)
                 
                 local num_walls = 4
                 
@@ -583,24 +599,34 @@ function makeWallSprites(map, columns, rows)
     end
 end
 
+
+local function animation_grid(imagetable, sequence)
+  local temp_imagetable = gfx.imagetable.new(#sequence)
+  for i = 1, #sequence do
+    temp_imagetable:setImage(i, imagetable:getImage(sequence[i]))
+  end
+  return temp_imagetable
+end
+
 function makePlayer(x_pos, y_pos, direction)
     local hands = gfx.sprite.new()
     hands.image = gfx.image.new(176, 160, gfx.kColorClear)
-    hands.state = "idle"
+    hands.state = hand_idle
     hands.imagetable = gfx.imagetable.new('Images/hands')
-    hands.animation = { shoot = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1, 2, 3}), false),
-                        reload = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {4, 5, 6, 7, 8}), false),
-                        idle = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {1}), true)}
+    hands.animation = { shoot = new_animation_loop(100, animation_grid(hands.imagetable, {1, 2, 3}), false),
+                        reload = new_animation_loop(100, animation_grid(hands.imagetable, {4, 5, 6, 7, 8}), false),
+                        idle = new_animation_loop(100, animation_grid(hands.imagetable, {1}), true),
+                        current = true }
     hands.animation.current = hands.animation.idle
     function hands:update()
-      if hands.state == "idle" then
-        if playdate.buttonIsPressed(playdate.kButtonA) then
+      if hands.state == hand_idle then
+        if playdate.buttonIsPressed(kButtonA) then
           gun_shot_sfx:play()
-          hands.state = "shooting"
-          hands.animation.current = gfx.animation.loop.new(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
+          hands.state = hand_shooting
+          hands.animation.current = new_animation_loop(100, animation_grid(hands.imagetable, {2, 3, 1}), false)
         end
       elseif hands.animation.current.frame == 3 then
-        hands.state = "idle"
+        hands.state = hand_idle
         hands.animation.current = hands.animation.idle
       end
       gfx.lockFocus(hands.image)
@@ -635,8 +661,8 @@ function makePlayer(x_pos, y_pos, direction)
     function s:update()
 
       local movex, movey = 0, 0
-        if playdate.buttonIsPressed(playdate.kButtonRight) then 
-            if playdate.buttonIsPressed(playdate.kButtonB) then
+        if playdate.buttonIsPressed(kButtonRight) then 
+            if playdate.buttonIsPressed(kButtonB) then
                 -- strafe right
                 movex = s.cos_dir
                 movey = -s.sin_dir
@@ -649,8 +675,8 @@ function makePlayer(x_pos, y_pos, direction)
                 s.moved = true
             end
         end
-        if playdate.buttonIsPressed(playdate.kButtonLeft) then 
-            if playdate.buttonIsPressed(playdate.kButtonB) then
+        if playdate.buttonIsPressed(kButtonLeft) then 
+            if playdate.buttonIsPressed(kButtonB) then
                 -- strafe left
                 movex = -s.cos_dir
                 movey = s.sin_dir
@@ -663,12 +689,12 @@ function makePlayer(x_pos, y_pos, direction)
                 s.moved = true
             end 
         end
-        if playdate.buttonIsPressed(playdate.kButtonUp) then
+        if playdate.buttonIsPressed(kButtonUp) then
             movex = s.sin_dir
             movey = s.cos_dir
             s.moved = true
         end
-        if playdate.buttonIsPressed(playdate.kButtonDown) then
+        if playdate.buttonIsPressed(kButtonDown) then
             movex = -s.sin_dir
             movey = -s.cos_dir
             s.moved = true
@@ -699,7 +725,7 @@ function makePlayer(x_pos, y_pos, direction)
         draw_these = table.create(9, 0)
         -- trace rays
           for i = 1, camera.rays do
-              ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
+              local ray_hits = querySpritesAlongLine(camera.ray_lines[i])
               for i = 1, min(#ray_hits, 3) do
                   ray_hits[i].inview = true
               end
@@ -717,10 +743,4 @@ function makePlayer(x_pos, y_pos, direction)
     
 end
 
-function animation_grid(imagetable, sequence)
-  local temp_imagetable = gfx.imagetable.new(#sequence)
-  for i, v in ipairs(sequence) do
-    temp_imagetable:setImage(i, imagetable:getImage(v))
-  end
-  return temp_imagetable
-end
+initialise()
