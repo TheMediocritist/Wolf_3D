@@ -449,7 +449,7 @@ function makeWallSprites(map, columns, rows)
                               ne = geom.point.new(x * 16, (y-1) * 16),
                               se = geom.point.new(x * 16, y * 16),
                               sw = geom.point.new((x-1) * 16, y * 16)}
-                s.view_vertices = {}
+                s.view_vertices = table.create(0, 8)
                 
                 local num_walls = 4
                 
