@@ -32,16 +32,17 @@ local dt, last_time = 0, 0
 
 -- add custom menu items
 local menu = playdate.getSystemMenu()
-local draw_shaded, draw_debug, perfmon = true, false, false
+local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, true, false
 
 menu:addCheckmarkMenuItem("Shading", true, function(value)
     draw_shaded = value
 end)
-menu:addCheckmarkMenuItem("draw debug", true, function(value)
+menu:addCheckmarkMenuItem("debug map", false, function(value)
   draw_debug = value
 end)
-menu:addCheckmarkMenuItem("perfmon", false, function(value)
-  perfmon = value
+menu:addCheckmarkMenuItem("mini map", true, function(value)
+  draw_minimap = value
+  draw_minimap_switched = true
 end)
 
 playdate.setMinimumGCTime(2) -- This is necessary to remove frequent stutters
@@ -242,18 +243,29 @@ function playdate.update()
     gfx.sprite.redrawBackground()
     gfx.sprite.update()
     
+    if draw_minimap_switched then
+      local do_draw = draw_minimap and true or false
+      for i = 1, #wall_sprites do
+        wall_sprites[i]:setVisible(do_draw)
+        player_sprite:setVisible(do_draw)
+      end
+      draw_minimap_switched = false
+    end
+    
     -- draw camera rays on mini-map
     -- draw all rays: for i = 1, camera.rays do
     -- draw only left and right rays: for i = 1, camera.rays, (camera.rays -1) do
-    for i = 1, camera.rays, (camera.rays - 1) do
-      gfx.setLineWidth(3)
-      gfx.setColor(gfx.kColorWhite)
-      gfx.drawLine(camera.ray_lines[i])
-      gfx.setLineWidth(1)
-      gfx.setColor(gfx.kColorBlack)
-      gfx.drawLine(camera.ray_lines[i])
+    if draw_minimap then 
+      for i = 1, camera.rays, (camera.rays - 1) do
+        gfx.setLineWidth(3)
+        gfx.setColor(gfx.kColorWhite)
+        gfx.drawLine(camera.ray_lines[i])
+        gfx.setLineWidth(1)
+        gfx.setColor(gfx.kColorBlack)
+        gfx.drawLine(camera.ray_lines[i])
+      end
     end
-
+    
     playdate.drawFPS(381, 4)
 end
 
