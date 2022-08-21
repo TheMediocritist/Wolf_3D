@@ -41,7 +41,7 @@ local dt, last_time = 0, 0
 
 -- add custom menu items
 local menu = playdate.getSystemMenu()
-local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, true, false
+local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, false, true
 
 menu:addCheckmarkMenuItem("Shading", true, function(value)
     draw_shaded = value
