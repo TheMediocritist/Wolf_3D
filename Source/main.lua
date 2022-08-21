@@ -34,7 +34,7 @@ local dt, last_time = 0, 0
 local menu = playdate.getSystemMenu()
 local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, true, false
 
-menu:addCheckmarkMenuItem("Shading", true, function(value)
+menu:addCheckmarkMenuItem("shading", true, function(value)
     draw_shaded = value
 end)
 menu:addCheckmarkMenuItem("debug map", false, function(value)
@@ -321,34 +321,41 @@ function updateView()
       local last_point = #p
       
       -- if wall extends behind camera, shift the vertex to clip the wall
-      if p[1].camera_distance < sprite_size or p[last_point].camera_distance < sprite_size then 
-        local ray_line = p[1].camera_angle < camera_fov_half_neg and {camera.ray_lines[1], camera_fov_half_neg} 
+      if p[1].camera_distance < sprite_size or p[last_point].camera_distance < sprite_size then -- if walls close enough to extend behind camera
+        local point = p[1]
+        local ray_line = point.camera_angle < camera_fov_half_neg and {camera.ray_lines[1], camera_fov_half_neg} 
 
-        if ray_line then
+        if ray_line then -- only runs if _left_ vertex outside view
+          
+          local x1, y1 = p[2].vertex:unpack()
+          local x2, y2 = point.vertex:unpack()
           local x3, y3, x4, y4 = ray_line[1]:unpack()
-          local intersects, new_point_x, new_point_y = fast_intersection(p[2].vertex.x, p[2].vertex.y, p[1].vertex.x, p[1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
           
           if intersects then
-            p[1].vertex = geom.point.new(new_point_x, new_point_y)
-            p[1].delta = p[1].vertex - player
-            p[1].player_distance = p[1].vertex:distanceToPoint(player)
-            p[1].camera_angle = ray_line[2]
-            p[1].camera_distance = p[1].player_distance * cos(rad(p[1].camera_angle))
+            point.vertex = geom.point.new(new_point_x, new_point_y)
+            point.delta = point.vertex - player
+            point.player_distance = point.vertex:distanceToPoint(player)
+            point.camera_angle = ray_line[2]
+            point.camera_distance = point.player_distance * cos(rad(point.camera_angle))
           end
         end
         
-        local ray_line = p[last_point].camera_angle > camera_fov_half and {camera.ray_lines[camera.rays], camera_fov_half}
+        local point = p[last_point]
+        local ray_line = point.camera_angle > camera_fov_half and {camera.ray_lines[camera.rays], camera_fov_half}
         
-        if ray_line then
+        if ray_line then -- only runs if _right_ vertex outside view
+          local x1, y1 = p[last_point - 1].vertex:unpack()
+          local x2, y2 = point.vertex:unpack()
           local x3, y3, x4, y4 = ray_line[1]:unpack()
-          local intersects, new_point_x, new_point_y = fast_intersection(p[last_point].vertex.x, p[last_point].vertex.y, p[last_point-1].vertex.x, p[last_point-1].vertex.y, x3, y3, x4, y4)
+          local intersects, new_point_x, new_point_y = fast_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
           
           if intersects then
-            p[last_point].vertex = geom.point.new(new_point_x, new_point_y)
-            p[last_point].delta = p[last_point].vertex - player
-            p[last_point].player_distance = p[last_point].vertex:distanceToPoint(player)
-            p[last_point].camera_angle = ray_line[2]
-            p[last_point].camera_distance = p[last_point].player_distance * cos(rad(p[last_point].camera_angle))
+            point.vertex = geom.point.new(new_point_x, new_point_y)
+            point.delta = point.vertex - player
+            point.player_distance = point.vertex:distanceToPoint(player)
+            point.camera_angle = ray_line[2]
+            point.camera_distance = point.player_distance * cos(rad(point.camera_angle))
           end
         end
       end
@@ -361,18 +368,20 @@ function updateView()
       
       -- turn points into polygons
       for i = 1, last_point - 1 do
-        screen_polys[#screen_polys+1] = {}
-        screen_polys[#screen_polys].distance = (p[i].camera_distance + p[i+1].camera_distance)/2
-        screen_polys[#screen_polys].left_angle = min(p[i].camera_angle, p[i+1].camera_angle)
-        screen_polys[#screen_polys].right_angle = max(p[i].camera_angle, p[i+1].camera_angle)
+        screen_polys[#screen_polys+1] = table.create(0, 6)
+        local poly = screen_polys[#screen_polys]
+        local next_p = p[i+1]
+        local p = p[i]
+        poly.distance = (p.camera_distance + next_p.camera_distance)/2
+        poly.left_angle = min(p.camera_angle, next_p.camera_angle)
+        poly.right_angle = max(p.camera_angle, next_p.camera_angle)
   
-        screen_polys[#screen_polys].polygon = geom.polygon.new(
-                            200 + p[i].offset_x, 120 + p[i].offset_y*4,
-                            200 + p[i+1].offset_x, 120 + p[i+1].offset_y*4,
-                            200 + p[i+1].offset_x, 120 - p[i+1].offset_y*4,
-                            200 + p[i].offset_x, 120 - p[i].offset_y*4,
-                            200 + p[i].offset_x, 120 + p[i].offset_y*4)
-                            
+        poly.polygon = geom.polygon.new(
+          200 + p.offset_x, 120 + p.offset_y*4,
+          200 + next_p.offset_x, 120 + next_p.offset_y*4,
+          200 + next_p.offset_x, 120 - next_p.offset_y*4,
+          200 + p.offset_x, 120 - p.offset_y*4,
+          200 + p.offset_x, 120 + p.offset_y*4)
                             
         if draw_debug then
           -- draw wall to top-down view
