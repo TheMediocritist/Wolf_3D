@@ -2,6 +2,7 @@ import 'CoreLibs/sprites'
 import 'CoreLibs/graphics'
 import 'CoreLibs/animation'
 import 'CoreLibs/timer'
+import 'map'
 
 local gfx <const> = playdate.graphics
 local geom <const> = playdate.geometry
@@ -20,8 +21,26 @@ local max <const> = math.max
 local pow <const> = math.pow
 local fast_intersection <const> = geom.lineSegment.fast_intersection
 
+local fill_pattern = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},   -- white
+                      {0xFF, 0xFF, 0xFF, 0xEE, 0xFF, 0xFF, 0xFF, 0xEE},
+                      {0xFF, 0xBB, 0xFF, 0xEE, 0xFF, 0xBB, 0xFF, 0xEE},
+                      {0xFF, 0xBB, 0xFF, 0xAA, 0xFF, 0xBB, 0xFF, 0xAA},
+                      {0xFF, 0xAA, 0xFF, 0xAA, 0xFF, 0xAA, 0xFF, 0xAA},
+                      {0xFF, 0xAA, 0xDD, 0xAA, 0xFF, 0xAA, 0xDD, 0xAA},
+                      {0x77, 0xAA, 0xDD, 0xAA, 0x77, 0xAA, 0xDD, 0xAA},
+                      {0x55, 0xAA, 0xDD, 0xAA, 0x55, 0xAA, 0xDD, 0xAA},
+                      {0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA},
+                      {0x55, 0xAA, 0x55, 0x88, 0x55, 0xAA, 0x55, 0x88},
+                      {0x55, 0x22, 0x55, 0x88, 0x55, 0x22, 0x55, 0x88},
+                      {0x55, 0x0, 0x55, 0x88, 0x55, 0x0, 0x55, 0x88},
+                      {0x55, 0x0, 0x55, 0x0, 0x55, 0x0, 0x55, 0x0},
+                      {0x55, 0x0, 0x44, 0x0, 0x55, 0x0, 0x44, 0x0},
+                      {0x11, 0x0, 0x44, 0x0, 0x11, 0x0, 0x44, 0x0},
+                      {0x11, 0x0, 0x0, 0x0, 0x11, 0x0, 0x0, 0x0},
+                      {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}           -- black
+
 -- set up camera
-local camera <const> = {fov = 70, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
+local camera <const> = {fov = 70, view_distance = 100, width = 400, width_div = 200, height = 500, height_div = 250}
 local camera_width_half <const> = camera.width / 2
 local camera_height_half <const> = camera.height / 2
 local camera_fov_half <const> = camera.fov / 2
@@ -96,7 +115,7 @@ local player_start = {x = 24, y = 24, direction = 90}
 local player_speed = 40
 local draw_these = table.create(9, 0)
 local view = gfx.image.new(400, 240, gfx.kColorBlack)
-local background_image = gfx.image.new('Images/background_gradient')
+local background_image = gfx.image.new('Images/background_flat_v2')
 local images = {}
 local wall_tiles_imagetable = gfx.imagetable.new("Images/wall_tiles-table-16-16")
 local gun_shot_sfx <const> = playdate.sound.sample.new("SFX/gun-shot")
@@ -165,6 +184,7 @@ function initialise()
     player_sprite = makePlayer(player_start.x, player_start.y, player_start.direction)
     setUpCamera()
     initialised = true
+    Map:init(11, 11)
     
     gfx.sprite.setBackgroundDrawingCallback(
       function()
@@ -197,7 +217,7 @@ function setUpCamera()
   
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
   local required_angle = deg(atan(sprite_size/camera.view_distance))
-  local camera_rays = floor(camera.fov/required_angle)  -- Temp until rays replaced with tree
+  local camera_rays = floor(camera.fov/required_angle) * 3  -- Temp until rays replaced with tree
   camera.ray_angles = camera.fov/camera_rays
   camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.direction = player_sprite.direction
@@ -383,7 +403,9 @@ function updateView()
       end
     end
   end
-    
+  
+  -- sort polygons from nearest to furthest
+  table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
   -- Draw polygons
   local num_screen_polys = #screen_polys
   
@@ -394,17 +416,18 @@ function updateView()
     end
   else
     for i = num_screen_polys, 1, -1 do
-      gfx.setColor(gfx.kColorWhite)
+      local shade = floor(5 + (screen_polys[i].distance/camera.view_distance) * 11)
       if player_sprite.hands.state == "shooting" then
+        -- apply a lighter pattern
         if player_sprite.hands.animation.current.frame == 1 then
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
+          gfx.setPattern(fill_pattern[shade - 3])
         elseif player_sprite.hands.animation.current.frame == 2 then
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.7),gfx.image.kDitherTypeBayer4x4)
+          gfx.setPattern(fill_pattern[shade - 2])
         else
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.8),gfx.image.kDitherTypeBayer4x4)
+          gfx.setPattern(fill_pattern[shade])
         end
       else
-        gfx.setDitherPattern(0.1+(screen_polys[i].distance/camera.view_distance/1.2),gfx.image.kDitherTypeBayer4x4)
+        gfx.setPattern(fill_pattern[shade])
       end
       gfx.fillPolygon(screen_polys[i].polygon)
     end
