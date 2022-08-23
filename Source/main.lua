@@ -21,7 +21,7 @@ local pow <const> = math.pow
 local fast_intersection <const> = geom.lineSegment.fast_intersection
 
 -- set up camera
-local camera <const> = {fov = 70, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
+local camera <const> = {fov = 70, view_distance = 80, width = 400, width_div = 200, height = 500, height_div = 250}
 local camera_width_half <const> = camera.width / 2
 local camera_height_half <const> = camera.height / 2
 local camera_fov_half <const> = camera.fov / 2
@@ -32,7 +32,7 @@ local dt, last_time = 0, 0
 
 -- add custom menu items
 local menu = playdate.getSystemMenu()
-local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, true, false
+local draw_shaded, draw_debug, draw_minimap, draw_minimap_switched = true, false, false, false
 
 menu:addCheckmarkMenuItem("shading", true, function(value)
     draw_shaded = value
@@ -40,14 +40,59 @@ end)
 menu:addCheckmarkMenuItem("debug map", false, function(value)
   draw_debug = value
 end)
-menu:addCheckmarkMenuItem("mini map", true, function(value)
+menu:addCheckmarkMenuItem("mini map", false, function(value)
   draw_minimap = value
   draw_minimap_switched = true
+  
 end)
 
 playdate.setMinimumGCTime(2) -- This is necessary to remove frequent stutters
 gfx.setColor(gfx.kColorBlack)
 playdate.display.setRefreshRate(40)
+
+local fill_pattern = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},   -- white
+                      {0xFF, 0xFF, 0xFF, 0xEE, 0xFF, 0xFF, 0xFF, 0xEE},
+                      {0xFF, 0xBB, 0xFF, 0xEE, 0xFF, 0xBB, 0xFF, 0xEE},
+                      {0xFF, 0xBB, 0xFF, 0xAA, 0xFF, 0xBB, 0xFF, 0xAA},
+                      {0xFF, 0xAA, 0xFF, 0xAA, 0xFF, 0xAA, 0xFF, 0xAA},
+                      {0xFF, 0xAA, 0xDD, 0xAA, 0xFF, 0xAA, 0xDD, 0xAA},
+                      {0x77, 0xAA, 0xDD, 0xAA, 0x77, 0xAA, 0xDD, 0xAA},
+                      {0x55, 0xAA, 0xDD, 0xAA, 0x55, 0xAA, 0xDD, 0xAA},
+                      {0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA},
+                      {0x55, 0xAA, 0x55, 0x88, 0x55, 0xAA, 0x55, 0x88},
+                      {0x55, 0x22, 0x55, 0x88, 0x55, 0x22, 0x55, 0x88},
+                      {0x55, 0x0, 0x55, 0x88, 0x55, 0x0, 0x55, 0x88},
+                      {0x55, 0x0, 0x55, 0x0, 0x55, 0x0, 0x55, 0x0},
+                      {0x55, 0x0, 0x44, 0x0, 0x55, 0x0, 0x44, 0x0},
+                      {0x11, 0x0, 0x44, 0x0, 0x11, 0x0, 0x44, 0x0},
+                      {0x11, 0x0, 0x0, 0x0, 0x11, 0x0, 0x0, 0x0},
+                      {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}           -- black
+
+local map_floor1_flat <const> =  
+{0,0,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,
+0,0,1,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,
+0,0,1,0,0,0,0,6,0,0,0,0,0,6,0,0,0,0,0,0,1,
+0,0,1,1,1,1,1,1,1,1,0,1,1,1,1,0,0,0,0,0,1,
+0,0,1,0,0,0,0,0,1,1,0,1,1,0,1,1,0,0,0,1,1,
+0,0,1,0,0,0,0,0,6,0,0,0,1,0,0,1,1,6,1,1,0,
+0,0,1,0,0,0,0,0,1,1,1,1,1,0,0,0,1,0,1,0,0,
+0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,
+1,1,1,1,1,6,1,1,1,0,0,0,0,0,0,0,1,0,1,0,0,
+1,0,0,0,1,0,1,0,0,0,0,0,1,1,1,1,1,0,1,1,1,
+1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+1,0,1,1,1,6,1,1,1,0,0,0,1,0,1,1,1,0,1,0,1,
+1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1,0,1,0,1,
+1,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,1,1,
+1,0,6,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,1,0,0,
+1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,
+1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,
+1,0,1,1,1,6,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,
+1,0,1,0,1,0,1,0,1,1,0,0,0,0,0,1,1,1,1,1,1,
+1,0,0,0,1,0,1,0,0,1,1,1,1,1,1,1,1,1,0,0,1,
+1,0,1,0,1,0,1,0,0,1,1,1,1,0,0,0,0,1,0,4,1,
+1,0,1,1,1,0,1,1,1,1,0,0,0,0,0,0,0,6,0,0,1,
+1,0,0,0,0,0,0,0,0,6,0,0,1,0,0,0,0,1,0,0,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 
 local map_floor1 <const> =  
 {{0,0,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1},
@@ -92,11 +137,11 @@ local initialised = false
 local map_sprite, player_sprite = nil, nil
 local sprite_size = 16
 local wall_sprites = table.create(31, 0)
-local player_start = {x = 24, y = 24, direction = 90}
+local player_start = {x = 54, y = 24, direction = 90}
 local player_speed = 40
 local draw_these = table.create(9, 0)
 local view = gfx.image.new(400, 240, gfx.kColorBlack)
-local background_image = gfx.image.new('Images/background_gradient')
+local background_image = gfx.image.new('Images/background_flat')
 local images = {}
 local wall_tiles_imagetable = gfx.imagetable.new("Images/wall_tiles-table-16-16")
 local gun_shot_sfx <const> = playdate.sound.sample.new("SFX/gun-shot")
@@ -161,7 +206,7 @@ end
 function initialise()
     --makeWorkingMap(12, 12)
     makeWallImages()
-    makeWallSprites(map, 7, 7)
+    makeWallSprites(map_floor1_flat, 21, 24)
     player_sprite = makePlayer(player_start.x, player_start.y, player_start.direction)
     setUpCamera()
     initialised = true
@@ -394,6 +439,9 @@ function updateView()
   end
     
   -- Draw polygons
+  -- sort polygons from nearest to furthest
+  table.sort(screen_polys, function (k1, k2) return k1.distance < k2.distance end)
+  -- Draw polygons
   local num_screen_polys = #screen_polys
   
   if draw_shaded == false then
@@ -403,17 +451,18 @@ function updateView()
     end
   else
     for i = num_screen_polys, 1, -1 do
-      gfx.setColor(gfx.kColorWhite)
+      local shade = floor(5 + (screen_polys[i].distance/camera.view_distance) * 11)
       if player_sprite.hands.state == "shooting" then
+        -- apply a lighter pattern
         if player_sprite.hands.animation.current.frame == 1 then
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.5),gfx.image.kDitherTypeBayer4x4)
+          gfx.setPattern(fill_pattern[shade - 3])
         elseif player_sprite.hands.animation.current.frame == 2 then
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.7),gfx.image.kDitherTypeBayer4x4)
+          gfx.setPattern(fill_pattern[shade - 2])
         else
-          gfx.setDitherPattern(-0.6 + (screen_polys[i].distance/camera.view_distance*1.8),gfx.image.kDitherTypeBayer4x4)
+          gfx.setPattern(fill_pattern[shade])
         end
       else
-        gfx.setDitherPattern(0.1+(screen_polys[i].distance/camera.view_distance/1.2),gfx.image.kDitherTypeBayer4x4)
+        gfx.setPattern(fill_pattern[shade])
       end
       gfx.fillPolygon(screen_polys[i].polygon)
     end
@@ -433,13 +482,18 @@ end
 
 function makeWallSprites(map, columns, rows)
     local map_index = 0
-    local image_outofview = gfx.image.new(16, 16, gfx.kColorBlack)
+    local image_outofview = gfx.image.new(16, 16, gfx.kColorClear)
     local image_inview = gfx.image.new(16, 16, gfx.kColorBlack)
     gfx.lockFocus(image_inview)
     gfx.setColor(gfx.kColorWhite)
     gfx.drawRect(1, 1, 14, 14)
     gfx.unlockFocus()
     gfx.setColor(gfx.kColorBlack)
+    gfx.lockFocus(image_outofview)
+    gfx.drawRect(0, 0, 16, 16)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.drawRect(1, 1, 14, 14)
+    gfx.unlockFocus()
     
     for y = 1, rows do
         for x = 1, columns do
@@ -461,62 +515,62 @@ function makeWallSprites(map, columns, rows)
                 
                 -- cull walls between wall sprites and populate view vertices (8 directions)
                 if y == 1 or (y > 1 and map[(y - 2) * columns + x] == 1) then s.wall_n = true num_walls -=1 else s.wall_n = false end
-                if y == 7 or (y < 7 and map[y  * columns + x] == 1) then s.wall_s = true num_walls -=1 else s.wall_s = false end
+                if y == 24 or (y < 24 and map[y  * columns + x] == 1) then s.wall_s = true num_walls -=1 else s.wall_s = false end
                 if x == 1 or (x > 1 and map[(y - 1) * columns + x - 1] == 1) then s.wall_w = true num_walls -=1 else s.wall_w = false end
-                if x == 7 or (x < 7 and map[(y - 1) * columns + x + 1] == 1) then s.wall_e = true num_walls -=1 else s.wall_e = false end
+                if x == 24 or (x < 24 and map[(y - 1) * columns + x + 1] == 1) then s.wall_e = true num_walls -=1 else s.wall_e = false end
                 
-                if num_walls == 4 then
-                  s.image_noview = wall_tiles_imagetable:getImage(1)
-                  s.image_inview = wall_tiles_imagetable:getImage(16)
-                elseif num_walls == 3 then
-                  if s.wall_n then 
-                    s.image_noview = wall_tiles_imagetable:getImage(2)
-                    s.image_inview = wall_tiles_imagetable:getImage(17)
-                  elseif s.wall_e then 
-                    s.image_noview = wall_tiles_imagetable:getImage(3)
-                    s.image_inview = wall_tiles_imagetable:getImage(18)
-                  elseif s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(4)
-                    s.image_inview = wall_tiles_imagetable:getImage(19)
-                  elseif s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(5)
-                    s.image_inview = wall_tiles_imagetable:getImage(20)
-                  end
-                elseif num_walls == 2 then
-                  if s.wall_s and s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(6)
-                    s.image_inview = wall_tiles_imagetable:getImage(21)
-                  elseif s.wall_w and s.wall_n then 
-                    s.image_noview = wall_tiles_imagetable:getImage(7)
-                    s.image_inview = wall_tiles_imagetable:getImage(22)
-                  elseif s.wall_n and s.wall_e then 
-                    s.image_noview = wall_tiles_imagetable:getImage(8)
-                    s.image_inview = wall_tiles_imagetable:getImage(23)
-                  elseif s.wall_e and s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(9)
-                    s.image_inview = wall_tiles_imagetable:getImage(24)
-                  elseif s.wall_n and s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(10)
-                    s.image_inview = wall_tiles_imagetable:getImage(25)
-                  elseif s.wall_e and s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(11)
-                    s.image_inview = wall_tiles_imagetable:getImage(26)
-                  end
-                elseif num_walls == 1 then
-                  if s.wall_e and s.wall_s and s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(12)
-                    s.image_inview = wall_tiles_imagetable:getImage(27)
-                  elseif s.wall_s and s.wall_w and s.wall_n then 
-                    s.image_noview = wall_tiles_imagetable:getImage(13)
-                    s.image_inview = wall_tiles_imagetable:getImage(28)
-                  elseif s.wall_w and s.wall_n and s.wall_e then 
-                    s.image_noview = wall_tiles_imagetable:getImage(14)
-                    s.image_inview = wall_tiles_imagetable:getImage(29)
-                  elseif s.wall_n and s.wall_e and s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(15)
-                    s.image_inview = wall_tiles_imagetable:getImage(30)
-                  end
-                end
+                -- if num_walls == 4 then
+                --   s.image_noview = wall_tiles_imagetable:getImage(1)
+                --   s.image_inview = wall_tiles_imagetable:getImage(16)
+                -- elseif num_walls == 3 then
+                --   if s.wall_n then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(2)
+                --     s.image_inview = wall_tiles_imagetable:getImage(17)
+                --   elseif s.wall_e then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(3)
+                --     s.image_inview = wall_tiles_imagetable:getImage(18)
+                --   elseif s.wall_s then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(4)
+                --     s.image_inview = wall_tiles_imagetable:getImage(19)
+                --   elseif s.wall_w then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(5)
+                --     s.image_inview = wall_tiles_imagetable:getImage(20)
+                --   end
+                -- elseif num_walls == 2 then
+                --   if s.wall_s and s.wall_w then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(6)
+                --     s.image_inview = wall_tiles_imagetable:getImage(21)
+                --   elseif s.wall_w and s.wall_n then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(7)
+                --     s.image_inview = wall_tiles_imagetable:getImage(22)
+                --   elseif s.wall_n and s.wall_e then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(8)
+                --     s.image_inview = wall_tiles_imagetable:getImage(23)
+                --   elseif s.wall_e and s.wall_s then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(9)
+                --     s.image_inview = wall_tiles_imagetable:getImage(24)
+                --   elseif s.wall_n and s.wall_s then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(10)
+                --     s.image_inview = wall_tiles_imagetable:getImage(25)
+                --   elseif s.wall_e and s.wall_w then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(11)
+                --     s.image_inview = wall_tiles_imagetable:getImage(26)
+                --   end
+                -- elseif num_walls == 1 then
+                --   if s.wall_e and s.wall_s and s.wall_w then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(12)
+                --     s.image_inview = wall_tiles_imagetable:getImage(27)
+                --   elseif s.wall_s and s.wall_w and s.wall_n then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(13)
+                --     s.image_inview = wall_tiles_imagetable:getImage(28)
+                --   elseif s.wall_w and s.wall_n and s.wall_e then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(14)
+                --     s.image_inview = wall_tiles_imagetable:getImage(29)
+                --   elseif s.wall_n and s.wall_e and s.wall_s then 
+                --     s.image_noview = wall_tiles_imagetable:getImage(15)
+                --     s.image_inview = wall_tiles_imagetable:getImage(30)
+                --   end
+                -- end
                 
                 if not (s.wall_n and s.wall_s and s.wall_e and s.wall_w) then
                   
@@ -583,6 +637,7 @@ function makeWallSprites(map, columns, rows)
                   
                   s:add()
                   s:moveTo((x-1) * 16+8, (y-1) * 16+8)
+                  s:setVisible(false)
                   
                   wall_sprites[#wall_sprites + 1] = s
                 end
@@ -720,8 +775,10 @@ function makePlayer(x_pos, y_pos, direction)
           end
     end
     
+    s:setVisible(false)
     s:add()
     s:moveTo(x_pos, y_pos)
+    
     return s
     
 end
