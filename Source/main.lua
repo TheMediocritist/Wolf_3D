@@ -40,7 +40,7 @@ local fill_pattern = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},   -- whi
                       {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}           -- black
 
 -- set up camera
-local camera <const> = {fov = 70, view_distance = 100, width = 400, width_div = 200, height = 500, height_div = 250}
+local camera <const> = {fov = 60, view_distance = 70, width = 400, width_div = 200, height = 500, height_div = 250}
 local camera_width_half <const> = camera.width / 2
 local camera_height_half <const> = camera.height / 2
 local camera_fov_half <const> = camera.fov / 2
@@ -68,52 +68,13 @@ playdate.setMinimumGCTime(2) -- This is necessary to remove frequent stutters
 gfx.setColor(gfx.kColorBlack)
 playdate.display.setRefreshRate(40)
 
-local map_floor1 <const> =  
-{{0,0,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1},
-{0,0,1,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1},
-{0,0,1,0,0,0,0,6,0,0,0,0,0,6,0,0,0,0,0,0,1},
-{0,0,1,1,1,1,1,1,1,1,0,1,1,1,1,0,0,0,0,0,1},
-{0,0,1,0,0,0,0,0,1,1,0,1,1,0,1,1,0,0,0,1,1},
-{0,0,1,0,0,0,0,0,6,0,0,0,1,0,0,1,1,6,1,1,0},
-{0,0,1,0,0,0,0,0,1,1,1,1,1,0,0,0,1,0,1,0,0},
-{0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0},
-{1,1,1,1,1,6,1,1,1,0,0,0,0,0,0,0,1,0,1,0,0},
-{1,0,0,0,1,0,1,0,0,0,0,0,1,1,1,1,1,0,1,1,1},
-{1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1},
-{1,0,1,1,1,6,1,1,1,0,0,0,1,0,1,1,1,0,1,0,1},
-{1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1,0,1,0,1},
-{1,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,1,1},
-{1,0,6,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,1,0,0},
-{1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0},
-{1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0},
-{1,0,1,1,1,6,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0},
-{1,0,1,0,1,0,1,0,1,1,0,0,0,0,0,1,1,1,1,1,1},
-{1,0,0,0,1,0,1,0,0,1,1,1,1,1,1,1,1,1,0,0,1},
-{1,0,1,0,1,0,1,0,0,1,1,1,1,0,0,0,0,1,0,4,1},
-{1,0,1,1,1,0,1,1,1,1,0,0,0,0,0,0,0,6,0,0,1},
-{1,0,0,0,0,0,0,0,0,6,0,0,1,0,0,0,0,1,0,0,1},
-{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}}
-
-local map <const> = {
-  1, 1, 1, 1, 1, 1, 1,
-  1, 0, 0, 0, 0, 0, 1,
-  1, 0, 1, 1, 0, 1, 1,
-  1, 0, 0, 0, 0, 0, 1,
-  1, 0, 1, 0, 1, 0, 1,
-  1, 0, 1, 0, 1, 0, 1,
-  1, 1, 1, 1, 1, 1, 1
-  }
-
-local working_map_rows, working_map_columns = nil, nil
-local working_map_sprites = {}
-
 local initialised = false
 local map_sprite, player_sprite = nil, nil
-local sprite_size = 16
-local wall_sprites = table.create(31, 0)
-local player_start = {x = 24, y = 24, direction = 90}
-local player_speed = 40
-local draw_these = table.create(9, 0)
+local sprite_size, half_sprite = 10, 5
+local wall_sprites = {}--table.create(31, 0)
+local player_start = {x = 190  , y = 200, direction = 180}
+local player_speed = 20
+local draw_these = {}--table.create(9, 0)
 local view = gfx.image.new(400, 240, gfx.kColorBlack)
 local background_image = gfx.image.new('Images/background_flat_v2')
 local images = {}
@@ -137,87 +98,43 @@ local function isWall(tile_x, tile_y)
   end
 end
 
-local function tileAt(x, y)
-  -- returns: tileid, column, row
-  -- or false if outside working map bounds
-  local column, row = ceil(x/16), ceil(y/16)
-  if column > 0 and column <= working_map_columns and row > 0 and row <= working_map_rows then
-    local tileid = (row - 1) * working_map_columns + column
-    return tileid, column, row
-  else 
-    return false
-  end
-end
-
-local function spritesAt(column, row)
-  -- returns {true, {sprite list} if mini map has a sprite at tile_x, tile_y
-  local x = (column - 1) * 16 + 8
-  local y = (row - 1) * 16 + 8
-  local sprites_at_point = gfx.sprite.querySpritesAtPoint(x, y)
-  if #sprites_at_point > 0 then
-    return true, sprites_at_point
-  end
-end
-
-function makeWorkingMap(columns, rows)
-  working_map_sprites = {}
-  local index = 0
-  for y = 1, rows do
-    for x = 1, columns do
-      index += 1
-      -- put a tile sprite here
-      local sprite = gfx.sprite.new()
-      sprite.tileid = index
-      sprite.row = y
-      sprite.column = x
-      sprite.width, sprite.height = sprite_size, sprite_size
-      sprite.is_wall = false
-      working_map_sprites[#working_map_sprites + 1] = sprite
-    end
-  end
-end
-
 function initialise()
-    --makeWorkingMap(12, 12)
-    makeWallImages()
-    makeWallSprites(map, 7, 7)
+
     player_sprite = makePlayer(player_start.x, player_start.y, player_start.direction)
     setUpCamera()
     initialised = true
-    Map:init(11, 11)
+    Map:init(24, 24)
     
     gfx.sprite.setBackgroundDrawingCallback(
       function()
-        --gfx.setClipRect(10, 10, 380, 220)
         view:draw(0, 0)
-        --gfx.clearClipRect()
       end
     )
 end
 
-function makeWallImages ()
-  
-  images.walls_noview = {}
-  images.walls_inview = {}
-  images.walls_noview.three_n = wall_tiles_imagetable:getImage(12)
-  images.walls_noview.two_ne = wall_tiles_imagetable:getImage(8)
-  images.walls_noview.two_ns = wall_tiles_imagetable:getImage(12)
-  images.walls_noview.one_nes = wall_tiles_imagetable:getImage(2)
-  images.walls_noview.four_nesw = wall_tiles_imagetable:getImage(1)
-  
-  images.walls_inview.three_n = wall_tiles_imagetable:getImage(27)
-  images.walls_inview.two_ne = wall_tiles_imagetable:getImage(23)
-  images.walls_inview.two_ns = wall_tiles_imagetable:getImage(27)
-  images.walls_inview.one_nes = wall_tiles_imagetable:getImage(17)
-  images.walls_inview.four_nesw = wall_tiles_imagetable:getImage(16)
-
-end
+-- function makeWallImages ()
+--   
+--   images.walls_noview = {}
+--   images.walls_inview = {}
+--   images.walls_noview.three_n = wall_tiles_imagetable:getImage(12)
+--   images.walls_noview.two_ne = wall_tiles_imagetable:getImage(8)
+--   images.walls_noview.two_ns = wall_tiles_imagetable:getImage(12)
+--   images.walls_noview.one_nes = wall_tiles_imagetable:getImage(2)
+--   images.walls_noview.four_nesw = wall_tiles_imagetable:getImage(1)
+--   
+--   images.walls_inview.three_n = wall_tiles_imagetable:getImage(27)
+--   images.walls_inview.two_ne = wall_tiles_imagetable:getImage(23)
+--   images.walls_inview.two_ns = wall_tiles_imagetable:getImage(27)
+--   images.walls_inview.one_nes = wall_tiles_imagetable:getImage(17)
+--   images.walls_inview.four_nesw = wall_tiles_imagetable:getImage(16)
+-- 
+-- end
 
 function setUpCamera()
   
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
   local required_angle = deg(atan(sprite_size/camera.view_distance))
-  local camera_rays = floor(camera.fov/required_angle) * 3  -- Temp until rays replaced with tree
+  local camera_rays = floor(camera.fov/required_angle)*7  -- Temp until rays replaced with tree
   camera.ray_angles = camera.fov/camera_rays
   camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.direction = player_sprite.direction
@@ -234,16 +151,21 @@ end
 
 local function getVertices(wall_sprite)
   -- Fetch vertices for projecting/drawing
-  if wall_sprite.x - 8 > player_sprite.x then
-      if wall_sprite.y - 8 > player_sprite.y then return wall_sprite.view_vertices.nw         -- wall is below and right of player
-      elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.sw   -- wall is above and right of player
+  
+  -- -- get x and y offsets
+  -- 
+  -- local x_offset, y_offset = player_sprite.x - wall_sprite.x, player_sprite.y - wall_sprite.y
+  -- if x_offset > half_sprite then
+  if wall_sprite.x - half_sprite >= player_sprite.x then
+      if wall_sprite.y - half_sprite >= player_sprite.y then return wall_sprite.view_vertices.nw         -- wall is below and right of player
+      elseif (wall_sprite.y + half_sprite) <= player_sprite.y then return wall_sprite.view_vertices.sw   -- wall is above and right of player
       else return wall_sprite.view_vertices.w end                                             -- wall is directly to right of player
-  elseif (wall_sprite.x + 8) < player_sprite.x then
-      if wall_sprite.y - 8 > player_sprite.y then return wall_sprite.view_vertices.ne         -- wall is below and left of player
-      elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.se   -- wall is above and left of player
+  elseif (wall_sprite.x + half_sprite) <= player_sprite.x then
+      if wall_sprite.y - half_sprite >= player_sprite.y then return wall_sprite.view_vertices.ne         -- wall is below and left of player
+      elseif (wall_sprite.y + half_sprite) <= player_sprite.y then return wall_sprite.view_vertices.se   -- wall is above and left of player
       else return wall_sprite.view_vertices.e end                                             -- wall is directly to left of player
-  elseif (wall_sprite.y - 8) > player_sprite.y then return wall_sprite.view_vertices.n        -- wall is directly below player
-  elseif (wall_sprite.y + 8) < player_sprite.y then return wall_sprite.view_vertices.s        -- wall is directly above player 
+  elseif (wall_sprite.y - half_sprite) >= player_sprite.y then return wall_sprite.view_vertices.n        -- wall is directly below player
+  elseif (wall_sprite.y + half_sprite) <= player_sprite.y then return wall_sprite.view_vertices.s        -- wall is directly above player 
   end
 end
 
@@ -257,8 +179,13 @@ end
 function playdate.update()
     if initialised == false then initialise() end
     
+    print("current player deets")
+    print("x, y: " .. player_sprite.x .. ", " .. player_sprite.y)
+    local x, y, w, h = player_sprite:getCollideBounds()
+    print("collision rect: " .. x .. ", " .. y .. ", " .. w .. ", " .. h)
     updateDeltaTime()
     playdate.timer.updateTimers()
+    Map:update(player_sprite)
     updateView()
     gfx.sprite.redrawBackground()
     gfx.sprite.update()
@@ -297,19 +224,19 @@ function updateView()
   local screen_polys = {}
   local player = geom.point.new(player_sprite.x, player_sprite.y)
   local num_draw_these = #draw_these
-  
+  --printTable(draw_these)
   for i = 1, num_draw_these do
     local points = getVertices(draw_these[i])
     local p = {} 
-    
-    for i = 1, #points do
-      p[i] = table.create(0, 4)
-      p[i].vertex = points[i]
-    end
-    
-    local last_p = #p
-      if last_p > 0 then -- this skips over all the maths & drawing for objects with no visible vertices
-        
+    printTable(points)
+    if #points > 0 then -- this skips over all the maths & drawing for objects with no visible vertices
+      for i = 1, #points do
+        p[i] = table.create(0, 4)
+        p[i].vertex = points[i]
+      end
+      
+      local last_p = #p
+
         -- calculate angle to vertex in camera coordinates
         for i = 1, last_p do
           p[i].delta = player - p[i].vertex
@@ -445,166 +372,166 @@ function updateView()
   
 end
 
-function makeWallSprites(map, columns, rows)
-    local map_index = 0
-    local image_outofview = gfx.image.new(16, 16, gfx.kColorBlack)
-    local image_inview = gfx.image.new(16, 16, gfx.kColorBlack)
-    gfx.lockFocus(image_inview)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.drawRect(1, 1, 14, 14)
-    gfx.unlockFocus()
-    gfx.setColor(gfx.kColorBlack)
-    
-    for y = 1, rows do
-        for x = 1, columns do
-            map_index += 1
-            if map[map_index] == 1 then
-                local s = gfx.sprite.new(16,16)
-                s.image_inview = image_inview
-                s.image_noview = image_outofview
-                s.inview = false
-                s.wall = true
-                s.index = map_index
-                local vertices = {nw = geom.point.new((x-1) * 16, (y-1) * 16),
-                              ne = geom.point.new(x * 16, (y-1) * 16),
-                              se = geom.point.new(x * 16, y * 16),
-                              sw = geom.point.new((x-1) * 16, y * 16)}
-                s.view_vertices = {}
-                
-                local num_walls = 4
-                
-                -- cull walls between wall sprites and populate view vertices (8 directions)
-                if y == 1 or (y > 1 and map[(y - 2) * columns + x] == 1) then s.wall_n = true num_walls -=1 else s.wall_n = false end
-                if y == 7 or (y < 7 and map[y  * columns + x] == 1) then s.wall_s = true num_walls -=1 else s.wall_s = false end
-                if x == 1 or (x > 1 and map[(y - 1) * columns + x - 1] == 1) then s.wall_w = true num_walls -=1 else s.wall_w = false end
-                if x == 7 or (x < 7 and map[(y - 1) * columns + x + 1] == 1) then s.wall_e = true num_walls -=1 else s.wall_e = false end
-                
-                if num_walls == 4 then
-                  s.image_noview = wall_tiles_imagetable:getImage(1)
-                  s.image_inview = wall_tiles_imagetable:getImage(16)
-                elseif num_walls == 3 then
-                  if s.wall_n then 
-                    s.image_noview = wall_tiles_imagetable:getImage(2)
-                    s.image_inview = wall_tiles_imagetable:getImage(17)
-                  elseif s.wall_e then 
-                    s.image_noview = wall_tiles_imagetable:getImage(3)
-                    s.image_inview = wall_tiles_imagetable:getImage(18)
-                  elseif s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(4)
-                    s.image_inview = wall_tiles_imagetable:getImage(19)
-                  elseif s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(5)
-                    s.image_inview = wall_tiles_imagetable:getImage(20)
-                  end
-                elseif num_walls == 2 then
-                  if s.wall_s and s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(6)
-                    s.image_inview = wall_tiles_imagetable:getImage(21)
-                  elseif s.wall_w and s.wall_n then 
-                    s.image_noview = wall_tiles_imagetable:getImage(7)
-                    s.image_inview = wall_tiles_imagetable:getImage(22)
-                  elseif s.wall_n and s.wall_e then 
-                    s.image_noview = wall_tiles_imagetable:getImage(8)
-                    s.image_inview = wall_tiles_imagetable:getImage(23)
-                  elseif s.wall_e and s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(9)
-                    s.image_inview = wall_tiles_imagetable:getImage(24)
-                  elseif s.wall_n and s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(10)
-                    s.image_inview = wall_tiles_imagetable:getImage(25)
-                  elseif s.wall_e and s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(11)
-                    s.image_inview = wall_tiles_imagetable:getImage(26)
-                  end
-                elseif num_walls == 1 then
-                  if s.wall_e and s.wall_s and s.wall_w then 
-                    s.image_noview = wall_tiles_imagetable:getImage(12)
-                    s.image_inview = wall_tiles_imagetable:getImage(27)
-                  elseif s.wall_s and s.wall_w and s.wall_n then 
-                    s.image_noview = wall_tiles_imagetable:getImage(13)
-                    s.image_inview = wall_tiles_imagetable:getImage(28)
-                  elseif s.wall_w and s.wall_n and s.wall_e then 
-                    s.image_noview = wall_tiles_imagetable:getImage(14)
-                    s.image_inview = wall_tiles_imagetable:getImage(29)
-                  elseif s.wall_n and s.wall_e and s.wall_s then 
-                    s.image_noview = wall_tiles_imagetable:getImage(15)
-                    s.image_inview = wall_tiles_imagetable:getImage(30)
-                  end
-                end
-                
-                if not (s.wall_n and s.wall_s and s.wall_e and s.wall_w) then
-                  
-                  -- when wall is below and right of player, draw left and top sides
-                  if s.wall_n and s.wall_w then s.view_vertices.nw =  table.create(2, 0)
-                  elseif s.wall_n then s.view_vertices.nw =           {vertices.nw, vertices.sw}
-                  elseif s.wall_w then s.view_vertices.nw =           {vertices.ne, vertices.nw}
-                  else s.view_vertices.nw =                           {vertices.ne, vertices.nw, vertices.sw}
-                  end
-                  
-                  -- when wall is above and right of player, draw left and bottom sides
-                  if s.wall_w and s.wall_s then s.view_vertices.sw =  table.create(2, 0)
-                  elseif s.wall_w then s.view_vertices.sw =           {vertices.sw, vertices.se}
-                  elseif s.wall_s then s.view_vertices.sw =           {vertices.nw, vertices.sw}
-                  else s.view_vertices.sw =                           {vertices.nw, vertices.sw, vertices.se}
-                  end
-                  
-                  -- when wall is below and left of player, draw right and top sides
-                  if s.wall_n and s.wall_e then s.view_vertices.ne =  table.create(2, 0)
-                  elseif s.wall_n then s.view_vertices.ne =           {vertices.se, vertices.ne}
-                  elseif s.wall_e then s.view_vertices.ne =           {vertices.ne, vertices.nw}
-                  else s.view_vertices.ne =                           {vertices.se, vertices.ne, vertices.nw}
-                  end
-                  
-                  -- when wall is above and left of player, draw right and bottom sides
-                  if s.wall_e and s.wall_s then s.view_vertices.se = table.create(2, 0)
-                  elseif s.wall_e then s.view_vertices.se = {vertices.sw, vertices.se}
-                  elseif s.wall_s then s.view_vertices.se = {vertices.se, vertices.ne}
-                  else s.view_vertices.se = {vertices.sw, vertices.se, vertices.ne}
-                  end
-                  
-                  -- when wall is directly below player, only draw the top side
-                  if s.wall_n then s.view_vertices.n = table.create(2, 0)
-                  else s.view_vertices.n = {vertices.ne, vertices.nw}
-                  end
-                  
-                  -- when wall is directly above player, only draw the bottom side
-                  if s.wall_s then s.view_vertices.s = table.create(2, 0)
-                  else s.view_vertices.s = {vertices.sw, vertices.se}
-                  end
-                  
-                  -- when wall is directly to right of player, only draw the left side
-                  if s.wall_w then s.view_vertices.w = table.create(2, 0)
-                  else s.view_vertices.w = {vertices.nw, vertices.sw}
-                  end
-                  
-                  -- when wall is directly to left of player, only draw the right side
-                  if s.wall_e then s.view_vertices.e = table.create(2, 0)
-                  else s.view_vertices.e = {vertices.se, vertices.ne}
-                  end
-                  
-                  s:setCollideRect(0, 0, 16, 16)
-                  
-                  function s.update()
-                      if s.inview == true and s:getImage() ~= s.image_inview then
-                          s:setImage(s.image_inview)
-                      elseif s.inview == false and s:getImage() ~= s.image_noview then
-                          s:setImage(s.image_noview)
-                          s.inview = false
-                      else
-                        s.inview = false
-                      end
-                  end
-                  
-                  s:add()
-                  s:moveTo((x-1) * 16+8, (y-1) * 16+8)
-                  
-                  wall_sprites[#wall_sprites + 1] = s
-                end
-            end
-        end
-      
-    end
-end
+-- function makeWallSprites(map, columns, rows)
+--     local map_index = 0
+--     local image_outofview = gfx.image.new(16, 16, gfx.kColorBlack)
+--     local image_inview = gfx.image.new(16, 16, gfx.kColorBlack)
+--     gfx.lockFocus(image_inview)
+--     gfx.setColor(gfx.kColorWhite)
+--     gfx.drawRect(1, 1, 14, 14)
+--     gfx.unlockFocus()
+--     gfx.setColor(gfx.kColorBlack)
+--     
+--     for y = 1, rows do
+--         for x = 1, columns do
+--             map_index += 1
+--             if map[map_index] == 1 then
+--                 local s = gfx.sprite.new(16,16)
+--                 s.image_inview = image_inview
+--                 s.image_noview = image_outofview
+--                 s.inview = false
+--                 s.wall = true
+--                 s.index = map_index
+--                 local vertices = {nw = geom.point.new((x-1) * 16, (y-1) * 16),
+--                               ne = geom.point.new(x * 16, (y-1) * 16),
+--                               se = geom.point.new(x * 16, y * 16),
+--                               sw = geom.point.new((x-1) * 16, y * 16)}
+--                 s.view_vertices = {}
+--                 
+--                 local num_walls = 4
+--                 
+--                 -- cull walls between wall sprites and populate view vertices (8 directions)
+--                 if y == 1 or (y > 1 and map[(y - 2) * columns + x] == 1) then s.wall_n = true num_walls -=1 else s.wall_n = false end
+--                 if y == 7 or (y < 7 and map[y  * columns + x] == 1) then s.wall_s = true num_walls -=1 else s.wall_s = false end
+--                 if x == 1 or (x > 1 and map[(y - 1) * columns + x - 1] == 1) then s.wall_w = true num_walls -=1 else s.wall_w = false end
+--                 if x == 7 or (x < 7 and map[(y - 1) * columns + x + 1] == 1) then s.wall_e = true num_walls -=1 else s.wall_e = false end
+--                 
+--                 if num_walls == 4 then
+--                   s.image_noview = wall_tiles_imagetable:getImage(1)
+--                   s.image_inview = wall_tiles_imagetable:getImage(16)
+--                 elseif num_walls == 3 then
+--                   if s.wall_n then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(2)
+--                     s.image_inview = wall_tiles_imagetable:getImage(17)
+--                   elseif s.wall_e then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(3)
+--                     s.image_inview = wall_tiles_imagetable:getImage(18)
+--                   elseif s.wall_s then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(4)
+--                     s.image_inview = wall_tiles_imagetable:getImage(19)
+--                   elseif s.wall_w then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(5)
+--                     s.image_inview = wall_tiles_imagetable:getImage(20)
+--                   end
+--                 elseif num_walls == 2 then
+--                   if s.wall_s and s.wall_w then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(6)
+--                     s.image_inview = wall_tiles_imagetable:getImage(21)
+--                   elseif s.wall_w and s.wall_n then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(7)
+--                     s.image_inview = wall_tiles_imagetable:getImage(22)
+--                   elseif s.wall_n and s.wall_e then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(8)
+--                     s.image_inview = wall_tiles_imagetable:getImage(23)
+--                   elseif s.wall_e and s.wall_s then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(9)
+--                     s.image_inview = wall_tiles_imagetable:getImage(24)
+--                   elseif s.wall_n and s.wall_s then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(10)
+--                     s.image_inview = wall_tiles_imagetable:getImage(25)
+--                   elseif s.wall_e and s.wall_w then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(11)
+--                     s.image_inview = wall_tiles_imagetable:getImage(26)
+--                   end
+--                 elseif num_walls == 1 then
+--                   if s.wall_e and s.wall_s and s.wall_w then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(12)
+--                     s.image_inview = wall_tiles_imagetable:getImage(27)
+--                   elseif s.wall_s and s.wall_w and s.wall_n then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(13)
+--                     s.image_inview = wall_tiles_imagetable:getImage(28)
+--                   elseif s.wall_w and s.wall_n and s.wall_e then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(14)
+--                     s.image_inview = wall_tiles_imagetable:getImage(29)
+--                   elseif s.wall_n and s.wall_e and s.wall_s then 
+--                     s.image_noview = wall_tiles_imagetable:getImage(15)
+--                     s.image_inview = wall_tiles_imagetable:getImage(30)
+--                   end
+--                 end
+--                 
+--                 if not (s.wall_n and s.wall_s and s.wall_e and s.wall_w) then
+--                   
+--                   -- when wall is below and right of player, draw left and top sides
+--                   if s.wall_n and s.wall_w then s.view_vertices.nw =  table.create(2, 0)
+--                   elseif s.wall_n then s.view_vertices.nw =           {vertices.nw, vertices.sw}
+--                   elseif s.wall_w then s.view_vertices.nw =           {vertices.ne, vertices.nw}
+--                   else s.view_vertices.nw =                           {vertices.ne, vertices.nw, vertices.sw}
+--                   end
+--                   
+--                   -- when wall is above and right of player, draw left and bottom sides
+--                   if s.wall_w and s.wall_s then s.view_vertices.sw =  table.create(2, 0)
+--                   elseif s.wall_w then s.view_vertices.sw =           {vertices.sw, vertices.se}
+--                   elseif s.wall_s then s.view_vertices.sw =           {vertices.nw, vertices.sw}
+--                   else s.view_vertices.sw =                           {vertices.nw, vertices.sw, vertices.se}
+--                   end
+--                   
+--                   -- when wall is below and left of player, draw right and top sides
+--                   if s.wall_n and s.wall_e then s.view_vertices.ne =  table.create(2, 0)
+--                   elseif s.wall_n then s.view_vertices.ne =           {vertices.se, vertices.ne}
+--                   elseif s.wall_e then s.view_vertices.ne =           {vertices.ne, vertices.nw}
+--                   else s.view_vertices.ne =                           {vertices.se, vertices.ne, vertices.nw}
+--                   end
+--                   
+--                   -- when wall is above and left of player, draw right and bottom sides
+--                   if s.wall_e and s.wall_s then s.view_vertices.se = table.create(2, 0)
+--                   elseif s.wall_e then s.view_vertices.se = {vertices.sw, vertices.se}
+--                   elseif s.wall_s then s.view_vertices.se = {vertices.se, vertices.ne}
+--                   else s.view_vertices.se = {vertices.sw, vertices.se, vertices.ne}
+--                   end
+--                   
+--                   -- when wall is directly below player, only draw the top side
+--                   if s.wall_n then s.view_vertices.n = table.create(2, 0)
+--                   else s.view_vertices.n = {vertices.ne, vertices.nw}
+--                   end
+--                   
+--                   -- when wall is directly above player, only draw the bottom side
+--                   if s.wall_s then s.view_vertices.s = table.create(2, 0)
+--                   else s.view_vertices.s = {vertices.sw, vertices.se}
+--                   end
+--                   
+--                   -- when wall is directly to right of player, only draw the left side
+--                   if s.wall_w then s.view_vertices.w = table.create(2, 0)
+--                   else s.view_vertices.w = {vertices.nw, vertices.sw}
+--                   end
+--                   
+--                   -- when wall is directly to left of player, only draw the right side
+--                   if s.wall_e then s.view_vertices.e = table.create(2, 0)
+--                   else s.view_vertices.e = {vertices.se, vertices.ne}
+--                   end
+--                   
+--                   s:setCollideRect(0, 0, 16, 16)
+--                   
+--                   function s.update()
+--                       if s.inview == true and s:getImage() ~= s.image_inview then
+--                           s:setImage(s.image_inview)
+--                       elseif s.inview == false and s:getImage() ~= s.image_noview then
+--                           s:setImage(s.image_noview)
+--                           s.inview = false
+--                       else
+--                         s.inview = false
+--                       end
+--                   end
+--                   
+--                   s:add()
+--                   s:moveTo((x-1) * 16+8, (y-1) * 16+8)
+--                   
+--                   wall_sprites[#wall_sprites + 1] = s
+--                 end
+--             end
+--         end
+--       
+--     end
+-- end
 
 function makePlayer(x_pos, y_pos, direction)
     local hands = gfx.sprite.new()
@@ -636,19 +563,20 @@ function makePlayer(x_pos, y_pos, direction)
     hands:add()
     hands:moveTo(240, 160)
     
-    local image = gfx.image.new(6, 6)
+    local image = gfx.image.new(4, 4)
     gfx.lockFocus(image)
-    gfx.fillCircleAtPoint(3, 3, 3)
+    gfx.fillCircleAtPoint(2, 2, 2)
     gfx.setColor(gfx.kColorWhite)
-    gfx.fillCircleAtPoint(3, 30, 2)
+    gfx.fillCircleAtPoint(2, 2, 1)
     gfx.unlockFocus()
     
-    local s = gfx.sprite.new(image)
+    local s = gfx.sprite.new(4, 4)
+    s:setImage(image)
     s.hands = hands
     s.moved = false
     s.direction = direction
-    s:setCollideRect(0, 0, 6, 6)
-    s:setCenter(0.5, 0.5)
+    s:setCollideRect(0, 0, 5, 5)
+    --s:setCenter(0.5, 0.5)
     s.collisionResponse = gfx.sprite.kCollisionTypeSlide
     s.rotate_transform = playdate.geometry.affineTransform.new()
     s.sin_dir = sin_rad(s.direction)
@@ -723,13 +651,13 @@ function makePlayer(x_pos, y_pos, direction)
         -- trace rays
           for i = 1, camera.rays do
               ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
-              for i = 1, min(#ray_hits, 3) do
+              for i = 1, min(#ray_hits, 2) do
                   ray_hits[i].inview = true
               end
           end
-          for i = 1, #wall_sprites do
-              if wall_sprites[i].inview then
-                  draw_these[#draw_these + 1] = wall_sprites[i]
+          for i = 1, #Map.wall_sprites do
+              if Map.wall_sprites[i].inview and Map.wall_sprites[i].type == 'wall' then
+                  draw_these[#draw_these + 1] = Map.wall_sprites[i]
               end
           end
     end

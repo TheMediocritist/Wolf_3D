@@ -1,0 +1,26 @@
+How to do the map
+
+function initialise()
+mapping variables (scroll position, width, height etc)
+Load full_map
+Load portion of full_map to mini_map
+Create sprites (basically empty, rows & columns = 121 sprites for 11x11 map)
+Identify & populate wall sprite details (and add to wall_sprites list?)
+
+function update()
+	if required:
+		scroll map
+		update wall sprite details
+	end
+end
+
+function loadMap()
+	return full_map
+end
+
+function loadMinimap(full_map, row, column)
+	--
+end
+
+function makeSprite(row, column, type
+)

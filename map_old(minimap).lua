@@ -11,24 +11,22 @@ function Map:init(columns, rows, mapdata)
 	self.wall_sprites = {}
 	self.full_map = {columns = 24, rows = 24, tiledata = {}}
 	self.full_map.image = gfx.image.new(columns * 4, rows * 4)
-	--self.mini_map = {columns = 11, rows = 11, tiledata = {}, screenx = 10, screeny = 10}
+	self.mini_map = {columns = 11, rows = 11, tiledata = {}, screenx = 10, screeny = 10}
 	
-	self.tileW = 10
-	self.tileH = 10
+	self.tileW = 8
+	self.tileH = 8
 	self.image_noview = gfx.image.new(self.tileW, self.tileH, gfx.kColorBlack)
 	self.image_inview = gfx.image.new(self.tileW, self.tileH, gfx.kColorWhite)
 	self.full_map.tiledata = Map:importMap()
-	--self.mini_map.tiledata = Map:newMinimap(11, 11, self.current_column, self.current_row)
-	self:makeBaseSprites(self.full_map)
+	self.mini_map.tiledata = Map:newMinimap(11, 11, self.current_column, self.current_row)
+	
 	self:makeWalls()
 	-- draw the map image
 	gfx.lockFocus(self.full_map.image)
 	gfx.setColor(gfx.kColorWhite)
 	for y = 1, self.full_map.rows do
 		for x = 1, self.full_map.columns do 
-			if self.full_map.tiledata[y][x] == 1 then
-				gfx.fillRect((x - 1) * 4, (y - 1) * 4, 4, 4)
-			end
+			gfx.fillRect((x - 1) * 4, (y - 1) * 4, 4, 4)
 		end
 	end
 	gfx.unlockFocus()
@@ -69,24 +67,24 @@ function Map:update(player)
 	-- end
 end
 
-function Map:makeBaseSprites(map)
+function Map:newMinimap(columns, rows, current_column, current_row)
 	
 	-- copy data from full_map to mini_map and make sprites
 	local tiledata = {}
-	for row = 1, map.rows do
-		--local rowdata = {}
-		for column = 1, map.columns do
-			local data = map.tiledata[row][column]
-			--table.insert(rowdata, data)
+	for row = 1, rows do
+		local rowdata = {}
+		for column = 1, columns do
+			local data = self.full_map.tiledata[current_row + row - 1][current_column + column - 1]
+			table.insert(rowdata, data)
 			self.base_sprites[#self.base_sprites + 1] = self:makeBaseSprite(column, row, data)
 			if data == 1 then
 				self.wall_sprites[#self.wall_sprites + 1] = self.base_sprites[#self.base_sprites]
 			end
 		end
-		--table.insert(tiledata, rowdata)
+		table.insert(tiledata, rowdata)
 	end
 	
-	--return tiledata
+	return tiledata
 end
 
 function Map:makeWalls()
@@ -106,12 +104,13 @@ function Map:makeWalls()
 				s.inview = false
 			end
 		end
-
+		local screenx = self.mini_map.screenx
+		local screeny = self.mini_map.screeny
 		s.inview = false
-		local vertices = {nw = geom.point.new((column-1) * self.tileW, (row-1) * self.tileH),
-					  ne = geom.point.new(column * self.tileW, (row-1) * self.tileH),
-					  se = geom.point.new(column * self.tileW, row * self.tileH),
-					  sw = geom.point.new((column-1) * self.tileW, row * self.tileH)}
+		local vertices = {nw = geom.point.new(screenx + (column-1) * self.tileW, screeny + (row-1) * self.tileH),
+					  ne = geom.point.new(screenx + column * self.tileW, screeny + (row-1) * self.tileH),
+					  se = geom.point.new(screenx + column * self.tileW, screeny + row * self.tileH),
+					  sw = geom.point.new(screenx + (column-1) * self.tileW, screeny + row * self.tileH)}
 		s.view_vertices = {}
 		
 		local num_walls = 4
@@ -120,16 +119,16 @@ function Map:makeWalls()
 		if row == 1 then 
 			s.wall_n = true 
 			num_walls -=1 	
-		elseif self.full_map.tiledata[row - 1][column] == 1 then 
+		elseif self.mini_map.tiledata[row - 1][column] == 1 then 
 			s.wall_n = true 
 			num_walls -=1 
 		else
 			s.wall_n = false 
 		end
-		if row == self.full_map.rows then
+		if row == self.mini_map.rows then
 			s.wall_s = true 
 			num_walls -=1 
-		elseif self.full_map.tiledata[row + 1][column] == 1 then 
+		elseif self.mini_map.tiledata[row + 1][column] == 1 then 
 			s.wall_s = true 
 			num_walls -=1 
 		else 
@@ -138,17 +137,17 @@ function Map:makeWalls()
 		if column == 1 then 
 			s.wall_w = true 
 			num_walls -=1 
-		elseif self.full_map.tiledata[row][column - 1] == 1 then 
+		elseif self.mini_map.tiledata[row][column - 1] == 1 then 
 			s.wall_w = true 
 			num_walls -=1 
 		else 
 			s.wall_w = false 
 		end
 		
-		if column == self.full_map.columns then 
+		if column == self.mini_map.columns then 
 			s.wall_e = true 
 			num_walls -=1 
-		elseif self.full_map.tiledata[row][column + 1] == 1 then 
+		elseif self.mini_map.tiledata[row][column + 1] == 1 then 
 			s.wall_e = true 
 			num_walls -=1 
 		else 
@@ -209,6 +208,7 @@ function Map:makeWalls()
 		-- end
 		
 		if not (s.wall_n and s.wall_s and s.wall_e and s.wall_w) then
+		  
 		  -- when wall is below and right of player, draw left and top sides
 		  if s.wall_n and s.wall_w then s.view_vertices.nw =  table.create(2, 0)
 		  elseif s.wall_n then s.view_vertices.nw =           {vertices.nw, vertices.sw}
@@ -267,8 +267,8 @@ function Map:makeBaseSprite(this_column, this_row, this_data) --column, row, dat
 	local s = gfx.sprite.new(self.tileW, self.tileH)
 	local types = {"wall", "type3", "start", "exit", "door", "type7", "type8", "type9", "empty"}
 	-- print("screenx, tileW, column, screeny, tileH, row: " .. self.mini_map.screenx .. ", " .. self.tileW .. ", " ..this_column .. ", " .. self.mini_map.screeny .. ", " .. self.tileH .. ", " .. this_row)
-	local x_pos = self.tileW * (this_column - 1)
-	local y_pos = self.tileH * (this_row - 1)
+	local x_pos = self.mini_map.screenx + self.tileW * (this_column - 1)
+	local y_pos = self.mini_map.screeny + self.tileH * (this_row - 1)
 	s.type = types[this_data]
 	-- print("column, row, data, type: " .. this_column .. ", " .. this_row .. ", " .. this_data .. ", " .. s.type)
 	s.column = this_column
