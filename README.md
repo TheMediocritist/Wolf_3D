@@ -5,7 +5,8 @@ The goal here was to build an engine to demonstrate that something _like_ Wolfen
 
 **_Improvements/suggestions are very welcome!_** (I'm just learning how to do this).
 
-![Wolf_shooting](https://user-images.githubusercontent.com/79881777/185771654-cc1e56f0-368f-46d5-8161-6e0ebb3366f7.gif)
+![wolf_new_map](https://user-images.githubusercontent.com/79881777/186324112-459421ea-dc5f-4cb5-83d0-595d0264b1d8.gif)
+
 
 
 Scrappy code but the gist of it is:
@@ -30,7 +31,7 @@ To do:
 - [X] Make the new lineSegment bits for raytrace in init and rotate them instead of generating new in raytrace
 - [ ] Make a branch that replaces points and distances with vector2Ds so we can use vector maths and transformations, e.g. by creating view_left and view_right _once_ then rotating it to update
 - [ ] Clean up the code
-- [ ] Implement map scrolling to allow bigger levels (infinite?)
+- [X] Implement map scrolling to allow bigger levels (infinite?)
 - [X] Replace fixed values with variables for, e.g. FOV, view distance, tile size
 - [ ] Replace the 'ray casting' to identify viewable walls with simple stored tile-offset test (8 directions would be plenty)
 - [ ] Add option to use 200x120 for drawing then 2x scaling for final
