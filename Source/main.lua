@@ -145,6 +145,10 @@ local background_image = gfx.image.new('Images/background_flat')
 local images = {}
 local wall_tiles_imagetable = gfx.imagetable.new("Images/wall_tiles-table-16-16")
 local gun_shot_sfx <const> = playdate.sound.sample.new("SFX/gun-shot")
+local image_map = gfx.image.new(208, 208, gfx.kColorBlack)
+local image_minimap = gfx.image.new(90, 90, gfx.kColorClear)
+local image_minimap_mask = gfx.image.new("Images/minimap_mask")
+local image_minimap_overlay = gfx.image.new("Images/minimap_overlay_v2")
 
 local function cos_rad(x)
   return cos(rad(x))
@@ -207,6 +211,16 @@ function initialise()
     --makeWorkingMap(12, 12)
     makeWallImages()
     makeWallSprites(map_floor1_flat, 21, 24)
+    gfx.lockFocus(image_map)
+    gfx.setColor(gfx.kColorWhite)
+    for tiley = 1, 24 do
+      for tilex = 1, 21 do
+        if map_floor1_flat[(tiley - 1) * 21 + tilex] == 1 then
+          gfx.fillRect(tilex * 8, tiley * 8, 8, 8)
+        end
+      end
+    end
+        
     player_sprite = makePlayer(player_start.x, player_start.y, player_start.direction)
     setUpCamera()
     initialised = true
@@ -218,6 +232,13 @@ function initialise()
         --gfx.clearClipRect()
       end
     )
+    
+    image_minimap:addMask()
+    local mask = image_minimap:getMaskImage()
+    gfx.lockFocus(mask)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillCircleAtPoint(43, 43, 40)
+    gfx.unlockFocus()
 end
 
 function makeWallImages ()
@@ -242,7 +263,7 @@ function setUpCamera()
   
   -- calculate smallest number of rays required to detect all tiles in range of camera view_distance
   local required_angle = deg(atan(sprite_size/camera.view_distance))
-  local camera_rays = floor(camera.fov/required_angle)  -- Temp until rays replaced with tree
+  local camera_rays = floor(camera.fov/required_angle) -- Temp until rays replaced with tree
   camera.ray_angles = camera.fov/camera_rays
   camera.rays = camera_rays + 1 -- fence segments vs posts
   camera.direction = player_sprite.direction
@@ -289,11 +310,11 @@ function playdate.update()
     gfx.sprite.update()
     
     if draw_minimap_switched then
-      local do_draw = draw_minimap and true or false
-      for i = 1, #wall_sprites do
-        wall_sprites[i]:setVisible(do_draw)
-        player_sprite:setVisible(do_draw)
-      end
+      -- local do_draw = draw_minimap and true or false
+      -- for i = 1, #wall_sprites do
+      --   wall_sprites[i]:setVisible(do_draw)
+      --   player_sprite:setVisible(do_draw)
+      -- end
       draw_minimap_switched = false
     end
     
@@ -301,14 +322,27 @@ function playdate.update()
     -- draw all rays: for i = 1, camera.rays do
     -- draw only left and right rays: for i = 1, camera.rays, (camera.rays -1) do
     if draw_minimap then 
-      for i = 1, camera.rays, (camera.rays - 1) do
-        gfx.setLineWidth(3)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.drawLine(camera.ray_lines[i])
-        gfx.setLineWidth(1)
-        gfx.setColor(gfx.kColorBlack)
-        gfx.drawLine(camera.ray_lines[i])
-      end
+      -- for i = 1, camera.rays, (camera.rays - 1) do
+      --   gfx.setLineWidth(3)
+      --   gfx.setColor(gfx.kColorWhite)
+      --   gfx.drawLine(camera.ray_lines[i])
+      --   gfx.setLineWidth(1)
+      --   gfx.setColor(gfx.kColorBlack)
+      --   gfx.drawLine(camera.ray_lines[i])
+      -- end
+      gfx.lockFocus(image_minimap)
+      image_map:draw(-(player_sprite.x-74)/2, -(player_sprite.y-74)/2)
+      image_minimap:setMaskImage(image_minimap_mask)
+      image_minimap_overlay:draw(0, 0)
+      local dirx = 41 * sin(rad(player_sprite.direction))
+      local diry = 41 * cos(rad(player_sprite.direction))
+      gfx.setColor(gfx.kColorBlack)
+      gfx.fillCircleAtPoint(45 + dirx, 45 - diry, 4)
+      gfx.setColor(gfx.kColorWhite)
+      gfx.drawCircleAtPoint(45 + dirx, 45 - diry, 2)
+      gfx.unlockFocus()
+      
+      image_minimap:draw(310, 4)
     end
     
     playdate.drawFPS(381, 4)
@@ -317,7 +351,11 @@ end
 function updateView()
 
   gfx.pushContext(view)
-  background_image:draw(0, 0)
+  if draw_shaded then
+    background_image:draw(0, 0)
+  else
+    gfx.fillRect(0, 0, 400, 240)
+  end
   
   local screen_polys = {}
   local player = geom.point.new(player_sprite.x, player_sprite.y)
@@ -446,9 +484,13 @@ function updateView()
   
   if draw_shaded == false then
     gfx.setColor(gfx.kColorWhite)
+    --gfx.setImageDrawMode(gfx.kDrawModeNXOR)
     for i = num_screen_polys, 1, -1 do
+      
       gfx.drawPolygon(screen_polys[i].polygon)
+      
     end
+    --gfx.setImageDrawMode(gfx.kDrawModeCopy)
   else
     for i = num_screen_polys, 1, -1 do
       local shade = floor(5 + (screen_polys[i].distance/camera.view_distance) * 11)
@@ -764,7 +806,7 @@ function makePlayer(x_pos, y_pos, direction)
         -- trace rays
           for i = 1, camera.rays do
               ray_hits = gfx.sprite.querySpritesAlongLine(camera.ray_lines[i])
-              for i = 1, min(#ray_hits, 3) do
+              for i = 1, min(#ray_hits, 4) do
                   ray_hits[i].inview = true
               end
           end
