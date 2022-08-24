@@ -5,7 +5,8 @@ The goal here was to build an engine to demonstrate that something _like_ Wolfen
 
 **_Improvements/suggestions are very welcome!_** (I'm just learning how to do this).
 
-![Uploading Wolf_better_map.gif…]()
+![Wolf_better_map](https://user-images.githubusercontent.com/79881777/186337397-9e5078c3-201e-4852-ad61-2ab5af2915b4.gif)
+
 
 
 Scrappy code but the gist of it is:
